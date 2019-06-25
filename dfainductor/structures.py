@@ -58,7 +58,7 @@ class APTA:
         if isinstance(input, str):
             with click.open_file(input) as file:
                 examples_number, alphabet_size = [int(x) for x in next(file).split()]
-                for _ in range(examples_number):
+                for __ in range(examples_number):
                     self.add_example(next(file))
                 assert len(self._alphabet) == alphabet_size
         elif isinstance(input, list):
@@ -113,3 +113,83 @@ class APTA:
 
     def __str__(self):
         return self.to_dot()
+
+
+class DFA:
+    class State:
+        class StateStatus(Enum):
+            REJECTING, ACCEPTING = range(2)
+
+            @classmethod
+            def from_bool(cls, b):
+                return cls.ACCEPTING if b else cls.REJECTING
+
+            def to_bool(self):
+                return True if self is self.ACCEPTING else False
+
+        def __init__(self, id_, status):
+            self._id = id_
+            self.status = status
+            self._children = {}
+
+        @property
+        def id_(self):
+            return self._id
+
+        @property
+        def children(self):
+            return self._children
+
+        def has_child(self, label):
+            return label in self._children.keys()
+
+        def get_child(self, label):
+            return self._children[label]
+
+        def add_child(self, label, node):
+            self._children[label] = node
+
+        def is_accepting(self):
+            return self.status is self.StateStatus.ACCEPTING
+
+    def __init__(self):
+        self._states = []
+
+    def add_state(self, status):
+        self._states.append(DFA.State(self.size(), status))
+
+    def get_state(self, id_):
+        return self._states[id_]
+
+    def get_start(self):
+        return self._states[0] if self.size() > 0 else None
+
+    def size(self):
+        return len(self._states)
+
+    def add_transition(self, from_, label, to):
+        self._states[from_].add_child(label, self._states[to])
+
+    def run(self, word, start=None):
+        cur_state = start if start else self.get_start()
+        for label in word:
+            cur_state = cur_state.get_child(label)
+        return cur_state.is_accepting()
+
+    def to_dot(self):
+        s = (
+            "digraph DFA {\n"
+            "    node [shape = circle];\n"
+            "    0 [style = \"bold\"];\n"
+        )
+        for state in self._states:
+            if state.is_accepting():
+                s += "    " + str(state.id_) + " [peripheries=2]\n"
+            for label, to in state.children.items():
+                s += "    " + str(state.id_) + " -> " + str(to.id_) + " [label = \"" + label + "\"];\n"
+        s += "}\n"
+        return s
+
+    def __str__(self):
+        return self.to_dot()
+
