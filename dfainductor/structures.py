@@ -103,11 +103,11 @@ class APTA:
         )
         for node in self._nodes:
             if node.is_accepting():
-                s += "    " + str(node.id_) + " [peripheries=2]\n"
+                s += "    {0} [peripheries=2]\n".format(str(node.id_))
             if node.is_rejecting():
-                s += "    " + str(node.id_) + " [peripheries=3]\n"
+                s += "    {0} [peripheries=3]\n".format(str(node.id_))
             for label, to in node.children.items():
-                s += "    " + str(node.id_) + " -> " + str(to.id_) + " [label = \"" + label + "\"];\n"
+                s += "    {0} -> {1} [label = {2}];\n".format(str(node.id_), str(to.id_), label)
         s += "}\n"
         return s
 
@@ -184,9 +184,9 @@ class DFA:
         )
         for state in self._states:
             if state.is_accepting():
-                s += "    " + str(state.id_) + " [peripheries=2]\n"
+                s += "    {0} [peripheries=2]\n".format(str(state.id_))
             for label, to in state.children.items():
-                s += "    " + str(state.id_) + " -> " + str(to.id_) + " [label = \"" + label + "\"];\n"
+                s += "    {0} -> {1} [label = {2}];\n".format(str(state.id_), str(to.id_), label)
         s += "}\n"
         return s
 
