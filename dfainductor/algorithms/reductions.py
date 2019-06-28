@@ -6,6 +6,41 @@ from pysat.formula import CNF
 from ..structures import APTA
 
 
+def _implication_clause(lhs, rhs):
+    """
+    generates CNF formula of an expression /lhs => rhs/
+    """
+    return [[-lhs, rhs]]
+
+
+def _conjunction_implies_clause(*lhs, rhs):
+    """
+    generates CNF formula of an expression /lhs_1 and lhs_2 and ... and lhs_n => rhs/
+    """
+    return [[-arg for arg in lhs] + [rhs]]
+
+
+def _iff_clause(lhs, rhs):
+    """
+    generates CNF formula of an expression /lhs <=> rhs/
+    """
+    return [[-lhs, rhs], [lhs, -rhs]]
+
+
+def _iff_disjunction_clause(lhs, *rhs):
+    """
+    generates CNF formula of an expression /lhs <=> rhs_1 or rhs_2 or ... or rhs_n/
+    """
+    return [[-lhs] + (list(rhs))] + [[lhs, -arg] for arg in rhs]
+
+
+def _iff_conjunction_clause(lhs, *rhs):
+    """
+    generates CNF formula of an expression /lhs <=> rhs_1 and rhs_2 and ... and rhs_n/
+    """
+    return [[lhs] + [-arg for arg in rhs]] + [[-lhs, arg] for arg in rhs]
+
+
 class BaseClauseGenerator(ABC):
     def __init__(self, apta, dfa_size, vpool):
         self._apta = apta
@@ -17,11 +52,12 @@ class BaseClauseGenerator(ABC):
     def generate(self):
         pass
 
+    def update_vpool_top(self, formula):
+        if formula.nv > 0:
+            self._vpool.top = formula.nv
+
 
 class MinDFAToSATClausesGenerator(BaseClauseGenerator):
-    def __init__(self, apta, dfa_size, vpool):
-        super().__init__(apta, dfa_size, vpool)
-
     def generate(self):
         formula = self._fix_start_state()
         # print(formula.clauses)
@@ -70,7 +106,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                     top_id=self._vpool.top
                 ).clauses
             )
-            self._vpool.top = formula.nv
+            self.update_vpool_top(formula)
         return formula
 
     def _one_node_maps_to_at_most_one_state(self):
@@ -82,7 +118,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                     top_id=self._vpool.top
                 ).clauses
             )
-            self._vpool.top = formula.nv
+            self.update_vpool_top(formula)
         return formula
 
     def _dfa_is_complete(self):
@@ -95,7 +131,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                         top_id=self._vpool.top
                     ).clauses
                 )
-                self._vpool.top = formula.nv
+                self.update_vpool_top(formula)
         return formula
 
     def _dfa_is_deterministic(self):
@@ -108,28 +144,28 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                         top_id=self._vpool.top
                     ).clauses
                 )
-                self._vpool.top = formula.nv
+                self.update_vpool_top(formula)
         return formula
 
     def _state_status_compatible_with_node_status(self):
         formula = CNF()
         for node in self._apta.nodes:
             if node.status is APTA.Node.NodeStatus.ACCEPTING:
-                formula.extend(
-                    [
-                        [
-                            -self._vpool.id('x_{0}_{1}'.format(node.id_, j)), self._vpool.id('z_{0}'.format(j))
-                        ] for j in range(self._dfa_size)
-                    ]
-                )
+                for j in range(self._dfa_size):
+                    formula.extend(
+                        _implication_clause(
+                            self._vpool.id('x_{0}_{1}'.format(node.id_, j)),
+                            self._vpool.id('z_{0}'.format(j))
+                        )
+                    )
             elif node.status is APTA.Node.NodeStatus.REJECTING:
-                formula.extend(
-                    [
-                        [
-                            -self._vpool.id('x_{0}_{1}'.format(node.id_, j)), -self._vpool.id('z_{0}'.format(j))
-                        ] for j in range(self._dfa_size)
-                    ]
-                )
+                for j in range(self._dfa_size):
+                    formula.extend(
+                        _implication_clause(
+                            self._vpool.id('x_{0}_{1}'.format(node.id_, j)),
+                            -self._vpool.id('z_{0}'.format(j))
+                        )
+                    )
         return formula
 
     def _mapped_adjacent_nodes_force_transition(self):
@@ -137,15 +173,15 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
         for parent in self._apta.nodes:
             for label, child in parent.children.items():
                 if child:
-                    formula.extend(
-                        [
-                            [
-                                -self._vpool.id('x_{0}_{1}'.format(parent.id_, from_)),
-                                -self._vpool.id('x_{0}_{1}'.format(child.id_, to)),
-                                self._vpool.id('y_{0}_{1}_{2}'.format(from_, label, to))
-                            ] for from_ in range(self._dfa_size) for to in range(self._dfa_size)
-                        ]
-                    )
+                    for from_ in range(self._dfa_size):
+                        for to in range(self._dfa_size):
+                            formula.extend(
+                                _conjunction_implies_clause(
+                                    self._vpool.id('x_{0}_{1}'.format(parent.id_, from_)),
+                                    self._vpool.id('x_{0}_{1}'.format(child.id_, to)),
+                                    rhs=self._vpool.id('y_{0}_{1}_{2}'.format(from_, label, to))
+                                )
+                            )
         return formula
 
     def _mapped_node_and_transition_force_mapping(self):
@@ -153,13 +189,13 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
         for parent in self._apta.nodes:
             for label, child in parent.children.items():
                 if child:
-                    formula.extend(
-                        [
-                            [
-                                -self._vpool.id('x_{0}_{1}'.format(parent.id_, from_)),
-                                -self._vpool.id('y_{0}_{1}_{2}'.format(from_, label, to)),
-                                self._vpool.id('x_{0}_{1}'.format(child.id_, to))
-                            ] for from_ in range(self._dfa_size) for to in range(self._dfa_size)
-                        ]
-                    )
+                    for from_ in range(self._dfa_size):
+                        for to in range(self._dfa_size):
+                            formula.extend(
+                                _conjunction_implies_clause(
+                                    self._vpool.id('x_{0}_{1}'.format(parent.id_, from_)),
+                                    self._vpool.id('y_{0}_{1}_{2}'.format(from_, label, to)),
+                                    rhs=self._vpool.id('x_{0}_{1}'.format(child.id_, to))
+                                )
+                            )
         return formula
