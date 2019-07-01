@@ -20,19 +20,18 @@ from .structures import APTA
               help='upper bound of the DFA size')
 @click.option('-o', '--output', metavar='<PATH>', type=click.Path(allow_dash=True),
               help='write the found DFA using DOT language in <PATH> file; if not set, write to logging destination')
-# TODO: implement sym-breaking
-# @click.option('-b', '--sym-breaking', type=click.Choice(['BFS', 'NOSB']), default='BFS', show_default=True,
-#              help='symmetry breaking strategies')
+@click.option('-b', '--sym-breaking', type=click.Choice(['BFS', 'NOSB']), default='BFS', show_default=True,
+              help='symmetry breaking strategies')
 # TODO: implement timeout
 # @click.option('-t', '--timeout', metavar='<SECONDS>', type=int, help='set timeout')
 @click.option('-s', '--solver', metavar='<SOLVER>', required=True, help='solver name')
 @click.version_option(__version__, '-v', '--version')
-def cli(input, lower_bound, upper_bound, output, solver):
+def cli(input, lower_bound, upper_bound, output, sym_breaking, solver):
     try:
         apta = APTA(input)
         log_success('Successfully built an APTA from file \'{0}\''.format(input))
         log_info('The APTA size: {0}'.format(apta.size()))
-        searcher = LSUS(lower_bound, upper_bound, apta, solver, None)
+        searcher = LSUS(lower_bound, upper_bound, apta, solver, sym_breaking)
         dfa = searcher.search()
         if not dfa:
             log_info('There is no such DFA.')
