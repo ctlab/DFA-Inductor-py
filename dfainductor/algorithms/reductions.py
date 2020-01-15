@@ -65,7 +65,7 @@ class BaseClauseGenerator(ABC):
         pass
 
     def _update_vpool_top(self, formula):
-        if formula.nv > 0:
+        if formula.nv > 0 and formula.nv > self._vpool.top:
             self._vpool.top = formula.nv
 
     def _var(self, name, *indices):
@@ -76,36 +76,36 @@ class BaseClauseGenerator(ABC):
 class MinDFAToSATClausesGenerator(BaseClauseGenerator):
     def generate(self):
         formula = self._fix_start_state()
-        # print(formula.clauses)
-        self._formula.extend(formula.clauses)
+        # print(formula)
+        self._formula.extend(formula)
 
         formula = self._one_node_maps_to_at_least_one_state()
-        # print(formula.clauses)
-        self._formula.extend(formula.clauses)
+        # print(formula)
+        self._formula.extend(formula)
 
         formula = self._one_node_maps_to_at_most_one_state()
-        # print(formula.clauses)
-        self._formula.extend(formula.clauses)
+        # print(formula)
+        self._formula.extend(formula)
 
         formula = self._dfa_is_complete()
-        # print(formula.clauses)
-        self._formula.extend(formula.clauses)
+        # print(formula)
+        self._formula.extend(formula)
 
         formula = self._dfa_is_deterministic()
-        # print(formula.clauses)
-        self._formula.extend(formula.clauses)
+        # print(formula)
+        self._formula.extend(formula)
 
         formula = self._state_status_compatible_with_node_status()
-        # print(formula.clauses)
-        self._formula.extend(formula.clauses)
+        # print(formula)
+        self._formula.extend(formula)
 
         formula = self._mapped_adjacent_nodes_force_transition()
-        # print(formula.clauses)
-        self._formula.extend(formula.clauses)
+        # print(formula)
+        self._formula.extend(formula)
 
         formula = self._mapped_node_and_transition_force_mapping()
-        # print(formula.clauses)
-        self._formula.extend(formula.clauses)
+        # print(formula)
+        self._formula.extend(formula)
 
         return self._formula
 
@@ -120,7 +120,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                 CardEnc.atleast(
                     [self._var('x', i, j) for j in range(self._dfa_size)],
                     top_id=self._vpool.top
-                ).clauses
+                )
             )
             self._update_vpool_top(formula)
         return formula
@@ -132,7 +132,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                 CardEnc.atmost(
                     [self._var('x', node.id_, j) for j in range(self._dfa_size)],
                     top_id=self._vpool.top
-                ).clauses
+                )
             )
             self._update_vpool_top(formula)
         return formula
@@ -145,7 +145,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                     CardEnc.atleast(
                         [self._var('y', i, l_id, j) for j in range(self._dfa_size)],
                         top_id=self._vpool.top
-                    ).clauses
+                    )
                 )
                 self._update_vpool_top(formula)
         return formula
@@ -158,7 +158,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                     CardEnc.atmost(
                         [self._var('y', i, l_id, j) for j in range(self._dfa_size)],
                         top_id=self._vpool.top
-                    ).clauses
+                    )
                 )
                 self._update_vpool_top(formula)
         return formula
@@ -224,19 +224,19 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
 class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
     def generate(self):
         formula = self._define_t_variables()
-        self._formula.extend(formula.clauses)
+        self._formula.extend(formula)
 
         formula = self._define_p_variables()
-        self._formula.extend(formula.clauses)
+        self._formula.extend(formula)
 
         formula = self._state_has_at_least_one_parent()
-        self._formula.extend(formula.clauses)
+        self._formula.extend(formula)
 
         formula = self._preserve_parent_order_on_children()
-        self._formula.extend(formula.clauses)
+        self._formula.extend(formula)
 
         formula = self._order_children()
-        self._formula.extend(formula.clauses)
+        self._formula.extend(formula)
         return self._formula
 
     def _define_t_variables(self):
@@ -270,7 +270,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
                 CardEnc.atleast(
                     [self._var('p', child, parent) for parent in range(child)],
                     top_id=self._vpool.top
-                ).clauses
+                )
             )
             self._update_vpool_top(formula)
         return formula
@@ -288,10 +288,10 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
     def _order_children(self):
         formula = CNF()
         if self._alphabet_size == 2:
-            formula.extend(self._order_children_with_binary_alphabet().clauses)
+            formula.extend(self._order_children_with_binary_alphabet())
         elif self._alphabet_size > 2:
-            formula.extend(self._define_m_variables().clauses)
-            formula.extend(self._order_children_using_m().clauses)
+            formula.extend(self._define_m_variables())
+            formula.extend(self._order_children_using_m())
         return formula
 
     def _order_children_with_binary_alphabet(self):
