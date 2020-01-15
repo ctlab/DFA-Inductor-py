@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from pysat.formula import IDPool
 from pysat.solvers import Solver
 
-from .reductions import MinDFAToSATClausesGenerator, BFSBasedSymBreakingClausesGenerator
+from .reductions import *
 from ..structures import DFA
 
 
@@ -40,6 +40,8 @@ class BaseStrategy(ABC):
     def _symmetry_breaking_predicates(self):
         if self._sb_strategy == 'BFS':
             return BFSBasedSymBreakingClausesGenerator(self._apta, self._size, self._vpool).generate()
+        elif self._sb_strategy == 'TIGHTBFS':
+            return TightBFSBasedSymBreakingClausesGenerator(self._apta, self._size, self._vpool).generate()
 
 
 class ClassicSynthesizer(BaseStrategy):

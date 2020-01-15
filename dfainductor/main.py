@@ -20,7 +20,7 @@ from .structures import APTA
               help='upper bound of the DFA size')
 @click.option('-o', '--output', metavar='<PATH>', type=click.Path(allow_dash=True),
               help='write the found DFA using DOT language in <PATH> file; if not set, write to logging destination')
-@click.option('-b', '--sym-breaking', type=click.Choice(['BFS', 'NOSB']), default='BFS', show_default=True,
+@click.option('-b', '--sym-breaking', type=click.Choice(['BFS', 'NOSB', 'TIGHTBFS']), default='BFS', show_default=True,
               help='symmetry breaking strategies')
 # TODO: implement timeout
 # @click.option('-t', '--timeout', metavar='<SECONDS>', type=int, help='set timeout')

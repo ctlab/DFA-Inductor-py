@@ -5,6 +5,12 @@ from pysat.formula import CNF
 
 from ..structures import APTA
 
+__all__ = [
+    'MinDFAToSATClausesGenerator',
+    'BFSBasedSymBreakingClausesGenerator',
+    'TightBFSBasedSymBreakingClausesGenerator'
+]
+
 
 def _implication_to_clauses(lhs, rhs):
     """
@@ -343,4 +349,238 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
                                 -self._var('m', parent, l_less, child + 1)
                             )
                         )
+        return formula
+
+
+class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerator):
+
+    def generate(self):
+        formula = self._define_t_variables()
+        self._formula.extend(formula)
+
+        formula = self._define_nt_variables()
+        self._formula.extend(formula)
+
+        formula = self._define_p_variables_using_nt()
+        self._formula.extend(formula)
+
+        formula = self._state_has_at_least_one_parent()
+        self._formula.extend(formula)
+
+        formula = self._state_has_at_most_one_parent()
+        self._formula.extend(formula)
+
+        formula = self._preserve_parent_order_on_children()
+        self._formula.extend(formula)
+
+        formula = self._order_parents_using_ng_variables()
+        self._formula.extend(formula)
+
+        formula = self._define_eq_variables()
+        self._formula.extend(formula)
+
+        formula = self._order_children()
+        self._formula.extend(formula)
+
+        return self._formula
+
+    def _define_nt_variables(self):
+        formula = CNF()
+        for child in range(2, self._dfa_size):
+            formula.extend(
+                _iff_to_clauses(self._var('nt', 0, child), -self._var('t', 0, child))
+            )
+            for parent in range(1, child):
+                formula.extend(
+                    _iff_conjunction_to_clauses(
+                        self._var('nt', parent, child),
+                        [self._var('nt', parent - 1, child), -self._var('t', parent, child)]
+                    )
+                )
+        return formula
+
+    def _define_p_variables_using_nt(self):
+        formula = CNF()
+        for child in range(1, self._dfa_size):
+            formula.extend(
+                _iff_to_clauses(self._var('p', child, 0), self._var('t', 0, child))
+            )
+            for parent in range(1, child):
+                formula.extend(
+                    _iff_conjunction_to_clauses(
+                        self._var('p', child, parent),
+                        [self._var('t', parent, child), self._var('nt', parent - 1, child)]
+                    )
+                )
+        return formula
+
+    def _state_has_at_most_one_parent(self):
+        formula = CNF()
+        for child in range(1, self._dfa_size):
+            formula.extend(
+                CardEnc.atmost(
+                    [self._var('p', child, parent) for parent in range(child)],
+                    top_id=self._vpool.top
+                )
+            )
+            self._update_vpool_top(formula)
+        return formula
+
+    def _order_parents_using_ng_variables(self):
+        formula = CNF()
+        for child in range(1, self._dfa_size - 1):
+            formula.append([self._var('ng', child, child)])
+            formula.append([self._var('ng', child, 0)])
+            for parent in range(child):
+                formula.append([
+                    -self._var('ng', child, parent),
+                    self._var('ng', child, parent + 1),
+                    self._var('p', child, parent)
+                ])
+                formula.append([
+                    -self._var('ng', child, parent),
+                    self._var('eq', child, parent),
+                    self._var('p', child, parent)
+                ])
+                formula.append([
+                    -self._var('ng', child, parent),
+                    self._var('ng', child, parent + 1),
+                    -self._var('p', child + 1, parent)
+                ])
+                formula.append([
+                    -self._var('ng', child, parent),
+                    self._var('eq', child, parent),
+                    -self._var('p', child + 1, parent)
+                ])
+                formula.append([
+                    self._var('ng', child, parent),
+                    -self._var('ng', child, parent + 1),
+                    -self._var('eq', child, parent)
+                ])
+                formula.append([
+                    self._var('ng', child, parent),
+                    -self._var('p', child, parent),
+                    self._var('p', child + 1, parent)
+                ])
+        return formula
+
+    def _define_eq_variables(self):
+        formula = CNF()
+        for child in range(1, self._dfa_size - 1):
+            for parent in range(child):
+                formula.append([
+                    self._var('eq', child, parent),
+                    self._var('p', child, parent),
+                    self._var('p', child + 1, parent)
+                ])
+                formula.append([
+                    self._var('eq', child, parent),
+                    -self._var('p', child, parent),
+                    -self._var('p', child + 1, parent)
+                ])
+                formula.append([
+                    -self._var('eq', child, parent),
+                    -self._var('p', child, parent),
+                    self._var('p', child + 1, parent)
+                ])
+                formula.append([
+                    -self._var('eq', child, parent),
+                    self._var('p', child, parent),
+                    -self._var('p', child + 1, parent)
+                ])
+        return formula
+
+    def _order_children(self):
+        formula = CNF()
+        if self._alphabet_size == 2:
+            formula.extend(self._order_children_with_binary_alphabet())
+        elif self._alphabet_size > 2:
+            formula.extend(self._define_ny_variables())
+            formula.extend(self._define_m_variables_with_ny())
+            formula.extend(self._define_zm_variables())
+            formula.extend(self._order_children_using_zm())
+        return formula
+
+    def _define_ny_variables(self):
+        formula = CNF()
+        for child in range(self._dfa_size):
+            for parent in range(child):
+                formula.extend(
+                    _iff_to_clauses(
+                        self._var('ny', parent, 0, child),
+                        -self._var('y', parent, 0, child),
+                    )
+                )
+                for l_num in range(1, self._alphabet_size):
+                    formula.extend(
+                        _iff_conjunction_to_clauses(
+                            self._var('ny', parent, l_num, child),
+                            [
+                                -self._var('y', parent, l_num, child),
+                                self._var('ny', parent, l_num - 1, child)
+                            ]
+                        )
+                    )
+        return formula
+
+    def _define_m_variables_with_ny(self):
+        formula = CNF()
+        for child in range(self._dfa_size):
+            for parent in range(child):
+                formula.extend(
+                    _iff_to_clauses(
+                        self._var('m', parent, 0, child),
+                        self._var('y', parent, 0, child),
+                    )
+                )
+                for l_num in range(1, self._alphabet_size):
+                    formula.extend(
+                        _iff_conjunction_to_clauses(
+                            self._var('m', parent, l_num, child),
+                            [
+                                self._var('y', parent, l_num, child),
+                                self._var('ny', parent, l_num - 1, child)
+                            ]
+                        )
+                    )
+        return formula
+
+    def _define_zm_variables(self):
+        formula = CNF()
+        for child in range(self._dfa_size):
+            for parent in range(child):
+                formula.extend(
+                    _iff_to_clauses(
+                        self._var('zm', parent, 0, child),
+                        -self._var('m', parent, 0, child),
+                    )
+                )
+                for l_num in range(1, self._alphabet_size):
+                    formula.extend(
+                        _iff_conjunction_to_clauses(
+                            self._var('zm', parent, l_num, child),
+                            [
+                                self._var('zm', parent, l_num - 1, child),
+                                -self._var('m', parent, l_num, child)
+                            ]
+                        )
+                    )
+        return formula
+
+    def _order_children_using_zm(self):
+        formula = CNF()
+        for child in range(self._dfa_size - 1):
+            for parent in range(child):
+                for l_num in range(1, self._alphabet_size):
+                    formula.extend(
+                        _conjunction_implies_to_clauses(
+                            [
+                                self._var('p', child, parent),
+                                self._var('p', child + 1, parent),
+                                self._var('m', parent, l_num, child)
+                            ],
+                            self._var('zm', parent, l_num - 1, child + 1)
+                        )
+                    )
+
         return formula
