@@ -1,15 +1,16 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 
-from pysat.formula import IDPool
+from pysat.formula import IDPool, CNF
 from pysat.solvers import Solver
 
 from .reductions import *
-from ..structures import DFA
+from ..structures import DFA, APTA
 
 
 class BaseStrategy(ABC):
 
-    def __init__(self, solver, apta, size, sb_strategy):
+    def __init__(self, solver: Solver, apta: APTA, size: int, sb_strategy: str) -> None:
         self._solver: Solver = solver
         self._apta = apta
         self._size = size
@@ -17,10 +18,10 @@ class BaseStrategy(ABC):
         self._vpool = IDPool()
 
     @abstractmethod
-    def synthesize_dfa(self):
+    def synthesize_dfa(self) -> Optional[DFA]:
         pass
 
-    def _try_to_synthesize_dfa(self, formula):
+    def _try_to_synthesize_dfa(self, formula: CNF) -> Optional[DFA]:
         self._solver.append_formula(formula.clauses)
         is_sat = self._solver.solve()
         if is_sat:
@@ -37,7 +38,7 @@ class BaseStrategy(ABC):
         else:
             return None
 
-    def _symmetry_breaking_predicates(self):
+    def _symmetry_breaking_predicates(self) -> CNF:
         if self._sb_strategy == 'BFS':
             return BFSBasedSymBreakingClausesGenerator(self._apta, self._size, self._vpool).generate()
         elif self._sb_strategy == 'TIGHTBFS':
@@ -45,7 +46,7 @@ class BaseStrategy(ABC):
 
 
 class ClassicSynthesizer(BaseStrategy):
-    def synthesize_dfa(self):
+    def synthesize_dfa(self) -> Optional[DFA]:
         formula = MinDFAToSATClausesGenerator(self._apta, self._size, self._vpool).generate()
         formula.extend(self._symmetry_breaking_predicates().clauses)
         return self._try_to_synthesize_dfa(formula)

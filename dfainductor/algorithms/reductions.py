@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+from typing import List, Union
 
 from pysat.card import CardEnc
-from pysat.formula import CNF
+from pysat.formula import CNF, IDPool
 
 from ..structures import APTA
 
@@ -12,7 +13,7 @@ __all__ = [
 ]
 
 
-def _implication_to_clauses(lhs, rhs):
+def _implication_to_clauses(lhs: int, rhs: int) -> List[List[int]]:
     """
     generates CNF formula of an expression /lhs => rhs/
     :type lhs: int
@@ -21,7 +22,7 @@ def _implication_to_clauses(lhs, rhs):
     return [[-lhs, rhs]]
 
 
-def _conjunction_implies_to_clauses(lhs, rhs):
+def _conjunction_implies_to_clauses(lhs: List[int], rhs: int) -> List[List[int]]:
     """
     generates CNF formula of an expression /lhs_1 and lhs_2 and ... and lhs_n => rhs/
     :type lhs: list(int)
@@ -30,7 +31,7 @@ def _conjunction_implies_to_clauses(lhs, rhs):
     return [[-arg for arg in lhs] + [rhs]]
 
 
-def _iff_to_clauses(lhs, rhs):
+def _iff_to_clauses(lhs: int, rhs: int) -> List[List[int]]:
     """
     generates CNF formula of an expression /lhs <=> rhs/
     :type lhs: int
@@ -39,7 +40,7 @@ def _iff_to_clauses(lhs, rhs):
     return [[-lhs, rhs], [lhs, -rhs]]
 
 
-def _iff_disjunction_to_clauses(lhs, rhs):
+def _iff_disjunction_to_clauses(lhs: int, rhs: List[int]) -> List[List[int]]:
     """
     generates CNF formula of an expression /lhs <=> rhs_1 or rhs_2 or ... or rhs_n/
     :type lhs: int
@@ -48,7 +49,7 @@ def _iff_disjunction_to_clauses(lhs, rhs):
     return [[-lhs] + (list(rhs))] + [[lhs, -arg] for arg in rhs]
 
 
-def _iff_conjunction_to_clauses(lhs, rhs):
+def _iff_conjunction_to_clauses(lhs: int, rhs: List[int]) -> List[List[int]]:
     """
     generates CNF formula of an expression /lhs <=> rhs_1 and rhs_2 and ... and rhs_n/
     :type lhs: int
@@ -58,7 +59,8 @@ def _iff_conjunction_to_clauses(lhs, rhs):
 
 
 class BaseClauseGenerator(ABC):
-    def __init__(self, apta, dfa_size, vpool):
+
+    def __init__(self, apta: APTA, dfa_size: int, vpool: IDPool) -> None:
         self._apta = apta
         self._dfa_size = dfa_size
         self._vpool = vpool
@@ -67,20 +69,20 @@ class BaseClauseGenerator(ABC):
         self._alphabet_size = len(self._alphabet)
 
     @abstractmethod
-    def generate(self):
+    def generate(self) -> CNF:
         pass
 
-    def _update_vpool_top(self, formula):
+    def _update_vpool_top(self, formula: CNF) -> None:
         if formula.nv > 0 and formula.nv > self._vpool.top:
             self._vpool.top = formula.nv
 
-    def _var(self, name, *indices):
-        var = name + '_' + '_'.join(str(index) for index in indices)
+    def _var(self, name: str, *indices: Union[str, int]) -> int:
+        var: str = name + '_' + '_'.join(str(index) for index in indices)
         return self._vpool.id(var)
 
 
 class MinDFAToSATClausesGenerator(BaseClauseGenerator):
-    def generate(self):
+    def generate(self) -> CNF:
         formula = self._fix_start_state()
         # print(formula)
         self._formula.extend(formula)
@@ -115,11 +117,11 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
 
         return self._formula
 
-    def _fix_start_state(self):
+    def _fix_start_state(self) -> CNF:
         clauses = [[self._var('x', 0, 0)]]
         return CNF(from_clauses=clauses)
 
-    def _one_node_maps_to_at_least_one_state(self):
+    def _one_node_maps_to_at_least_one_state(self) -> CNF:
         formula = CNF()
         for i in range(self._apta.size()):
             formula.extend(
@@ -131,7 +133,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
             self._update_vpool_top(formula)
         return formula
 
-    def _one_node_maps_to_at_most_one_state(self):
+    def _one_node_maps_to_at_most_one_state(self) -> CNF:
         formula = CNF()
         for node in self._apta.nodes:
             formula.extend(
@@ -143,7 +145,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
             self._update_vpool_top(formula)
         return formula
 
-    def _dfa_is_complete(self):
+    def _dfa_is_complete(self) -> CNF:
         formula = CNF()
         for i in range(self._dfa_size):
             for l_id in range(self._alphabet_size):
@@ -156,7 +158,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                 self._update_vpool_top(formula)
         return formula
 
-    def _dfa_is_deterministic(self):
+    def _dfa_is_deterministic(self) -> CNF:
         formula = CNF()
         for i in range(self._dfa_size):
             for l_id in range(self._alphabet_size):
@@ -169,7 +171,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                 self._update_vpool_top(formula)
         return formula
 
-    def _state_status_compatible_with_node_status(self):
+    def _state_status_compatible_with_node_status(self) -> CNF:
         formula = CNF()
         for node in self._apta.nodes:
             if node.status is APTA.Node.NodeStatus.ACCEPTING:
@@ -190,7 +192,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                     )
         return formula
 
-    def _mapped_adjacent_nodes_force_transition(self):
+    def _mapped_adjacent_nodes_force_transition(self) -> CNF:
         formula = CNF()
         for parent in self._apta.nodes:
             for label, child in parent.children.items():
@@ -208,7 +210,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                             )
         return formula
 
-    def _mapped_node_and_transition_force_mapping(self):
+    def _mapped_node_and_transition_force_mapping(self) -> CNF:
         formula = CNF()
         for parent in self._apta.nodes:
             for label, child in parent.children.items():
@@ -228,7 +230,7 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
 
 
 class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
-    def generate(self):
+    def generate(self) -> CNF:
         formula = self._define_t_variables()
         self._formula.extend(formula)
 
@@ -245,7 +247,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
         self._formula.extend(formula)
         return self._formula
 
-    def _define_t_variables(self):
+    def _define_t_variables(self) -> CNF:
         formula = CNF()
         for from_ in range(self._dfa_size):
             for to in range(from_ + 1, self._dfa_size):
@@ -257,7 +259,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
                 )
         return formula
 
-    def _define_p_variables(self):
+    def _define_p_variables(self) -> CNF:
         formula = CNF()
         for parent in range(self._dfa_size):
             for child in range(parent + 1, self._dfa_size):
@@ -269,7 +271,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
                 )
         return formula
 
-    def _state_has_at_least_one_parent(self):
+    def _state_has_at_least_one_parent(self) -> CNF:
         formula = CNF()
         for child in range(1, self._dfa_size):
             formula.extend(
@@ -281,7 +283,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
             self._update_vpool_top(formula)
         return formula
 
-    def _preserve_parent_order_on_children(self):
+    def _preserve_parent_order_on_children(self) -> CNF:
         formula = CNF()
         for child in range(2, self._dfa_size - 1):
             for parent in range(1, child):
@@ -291,7 +293,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
                     )
         return formula
 
-    def _order_children(self):
+    def _order_children(self) -> CNF:
         formula = CNF()
         if self._alphabet_size == 2:
             formula.extend(self._order_children_with_binary_alphabet())
@@ -300,7 +302,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
             formula.extend(self._order_children_using_m())
         return formula
 
-    def _order_children_with_binary_alphabet(self):
+    def _order_children_with_binary_alphabet(self) -> CNF:
         formula = CNF()
         for child in range(self._dfa_size - 1):
             for parent in range(child):
@@ -318,7 +320,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
                 )
         return formula
 
-    def _define_m_variables(self):
+    def _define_m_variables(self) -> CNF:
         formula = CNF()
         for child in range(self._dfa_size):
             for parent in range(child):
@@ -333,7 +335,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
                     )
         return formula
 
-    def _order_children_using_m(self):
+    def _order_children_using_m(self) -> CNF:
         formula = CNF()
         for child in range(self._dfa_size - 1):
             for parent in range(child):
@@ -354,7 +356,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
 
 class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerator):
 
-    def generate(self):
+    def generate(self) -> CNF:
         formula = self._define_t_variables()
         self._formula.extend(formula)
 
@@ -384,7 +386,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
 
         return self._formula
 
-    def _define_nt_variables(self):
+    def _define_nt_variables(self) -> CNF:
         formula = CNF()
         for child in range(2, self._dfa_size):
             formula.extend(
@@ -399,7 +401,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                 )
         return formula
 
-    def _define_p_variables_using_nt(self):
+    def _define_p_variables_using_nt(self) -> CNF:
         formula = CNF()
         for child in range(1, self._dfa_size):
             formula.extend(
@@ -414,7 +416,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                 )
         return formula
 
-    def _state_has_at_most_one_parent(self):
+    def _state_has_at_most_one_parent(self) -> CNF:
         formula = CNF()
         for child in range(1, self._dfa_size):
             formula.extend(
@@ -426,7 +428,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
             self._update_vpool_top(formula)
         return formula
 
-    def _order_parents_using_ng_variables(self):
+    def _order_parents_using_ng_variables(self) -> CNF:
         formula = CNF()
         for child in range(1, self._dfa_size - 1):
             formula.append([self._var('ng', child, child)])
@@ -464,7 +466,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                 ])
         return formula
 
-    def _define_eq_variables(self):
+    def _define_eq_variables(self) -> CNF:
         formula = CNF()
         for child in range(1, self._dfa_size - 1):
             for parent in range(child):
@@ -490,7 +492,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                 ])
         return formula
 
-    def _order_children(self):
+    def _order_children(self) -> CNF:
         formula = CNF()
         if self._alphabet_size == 2:
             formula.extend(self._order_children_with_binary_alphabet())
@@ -501,7 +503,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
             formula.extend(self._order_children_using_zm())
         return formula
 
-    def _define_ny_variables(self):
+    def _define_ny_variables(self) -> CNF:
         formula = CNF()
         for child in range(self._dfa_size):
             for parent in range(child):
@@ -523,7 +525,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     )
         return formula
 
-    def _define_m_variables_with_ny(self):
+    def _define_m_variables_with_ny(self) -> CNF:
         formula = CNF()
         for child in range(self._dfa_size):
             for parent in range(child):
@@ -545,7 +547,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     )
         return formula
 
-    def _define_zm_variables(self):
+    def _define_zm_variables(self) -> CNF:
         formula = CNF()
         for child in range(self._dfa_size):
             for parent in range(child):
@@ -567,7 +569,7 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     )
         return formula
 
-    def _order_children_using_zm(self):
+    def _order_children_using_zm(self) -> CNF:
         formula = CNF()
         for child in range(self._dfa_size - 1):
             for parent in range(child):

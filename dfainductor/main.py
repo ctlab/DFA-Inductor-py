@@ -9,9 +9,9 @@ from .structures import APTA
 
 
 @click.command(context_settings=dict(
-                   max_content_width=999,
-                   help_option_names=['-h', '--help']
-               ))
+    max_content_width=999,
+    help_option_names=['-h', '--help']
+))
 @click.option('-i', '--input', metavar='<PATH>', required=True, type=click.Path(exists=True),
               help='a DFA learning input file in Abbadingo format')
 @click.option('-l', '--lower-bound', metavar='<INT>', type=int, default=1, show_default=True,
@@ -26,10 +26,15 @@ from .structures import APTA
 # @click.option('-t', '--timeout', metavar='<SECONDS>', type=int, help='set timeout')
 @click.option('-s', '--solver', metavar='<SOLVER>', required=True, help='solver name')
 @click.version_option(__version__, '-v', '--version')
-def cli(input, lower_bound, upper_bound, output, sym_breaking, solver):
+def cli(input_: str,
+        lower_bound: int,
+        upper_bound: int,
+        output: str,
+        sym_breaking: str,
+        solver: str) -> None:
     try:
-        apta = APTA(input)
-        log_success('Successfully built an APTA from file \'{0}\''.format(input))
+        apta = APTA(input_)
+        log_success('Successfully built an APTA from file \'{0}\''.format(input_))
         log_info('The APTA size: {0}'.format(apta.size()))
         searcher = LSUS(lower_bound, upper_bound, apta, solver, sym_breaking)
         dfa = searcher.search()
@@ -50,7 +55,7 @@ def cli(input, lower_bound, upper_bound, output, sym_breaking, solver):
                     log_br()
                     log_info(str(dfa))
     except IOError as err:
-        log_error('Cannot build an APTA from file \'{0}\': {1}'.format(input, err))
+        log_error('Cannot build an APTA from file \'{0}\': {1}'.format(input_, err))
         sys.exit(err.errno)
 
 
