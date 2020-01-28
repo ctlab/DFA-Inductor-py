@@ -6,6 +6,7 @@ from pysat.formula import CNF, IDPool
 
 from ..structures import APTA
 
+
 def _implication_to_clauses(lhs: int, rhs: int) -> List[List[int]]:
     """
     generates CNF formula of an expression /lhs => rhs/
@@ -73,9 +74,9 @@ class BaseClauseGenerator(ABC):
     def generate_with_new_size(self, new_size: int) -> CNF:
         pass
 
-    def _update_vpool_top(self, formula: CNF) -> None:
-        if formula.nv > 0 and formula.nv > self._vpool.top:
-            self._vpool.top = formula.nv
+    # def _update_vpool_top(self, formula: CNF) -> None:
+    #     if formula.nv > 0 and formula.nv > self._vpool.top:
+    #         self._vpool.top = formula.nv
 
     def _var(self, name: str, *indices: Union[str, int]) -> int:
         var: str = name + '_' + '_'.join(str(index) for index in indices)
@@ -141,10 +142,9 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
             formula.extend(
                 CardEnc.atleast(
                     [self._var('x', i, j) for j in range(self._dfa_size)],
-                    top_id=self._vpool.top
+                    vpool=self._vpool
                 )
             )
-            self._update_vpool_top(formula)
         return formula
 
     def _one_node_maps_to_at_most_one_state(self, new_from: int = 0) -> CNF:
@@ -153,10 +153,9 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
             formula.extend(
                 CardEnc.atmost(
                     [self._var('x', i, j) for j in range(self._dfa_size)],
-                    top_id=self._vpool.top
+                    vpool=self._vpool
                 )
             )
-            self._update_vpool_top(formula)
         return formula
 
     def _dfa_is_complete(self) -> CNF:
@@ -166,10 +165,9 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                 formula.extend(
                     CardEnc.atleast(
                         [self._var('y', i, l_id, j) for j in range(self._dfa_size)],
-                        top_id=self._vpool.top
+                        vpool=self._vpool
                     )
                 )
-                self._update_vpool_top(formula)
         return formula
 
     def _dfa_is_deterministic(self) -> CNF:
@@ -179,10 +177,9 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                 formula.extend(
                     CardEnc.atmost(
                         [self._var('y', i, l_id, j) for j in range(self._dfa_size)],
-                        top_id=self._vpool.top
+                        vpool=self._vpool
                     )
                 )
-                self._update_vpool_top(formula)
         return formula
 
     def _state_status_compatible_with_node_status(self, new_from: int = 0) -> CNF:
@@ -297,10 +294,9 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
             formula.extend(
                 CardEnc.atleast(
                     [self._var('p', child, parent) for parent in range(child)],
-                    top_id=self._vpool.top
+                    vpool=self._vpool
                 )
             )
-            self._update_vpool_top(formula)
         return formula
 
     def _preserve_parent_order_on_children(self) -> CNF:
@@ -442,10 +438,9 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
             formula.extend(
                 CardEnc.atmost(
                     [self._var('p', child, parent) for parent in range(child)],
-                    top_id=self._vpool.top
+                    vpool=self._vpool
                 )
             )
-            self._update_vpool_top(formula)
         return formula
 
     def _order_parents_using_ng_variables(self) -> CNF:
