@@ -72,6 +72,14 @@ class BaseClauseGenerator(ABC):
     def generate(self) -> CNF:
         pass
 
+    @abstractmethod
+    def generate_with_new_counterexamples(self, new_from: int) -> CNF:
+        pass
+
+    @abstractmethod
+    def generate_with_new_size(self, new_size: int) -> CNF:
+        pass
+
     def _update_vpool_top(self, formula: CNF) -> None:
         if formula.nv > 0 and formula.nv > self._vpool.top:
             self._vpool.top = formula.nv
@@ -84,46 +92,59 @@ class BaseClauseGenerator(ABC):
 class MinDFAToSATClausesGenerator(BaseClauseGenerator):
     def generate(self) -> CNF:
         formula = self._fix_start_state()
-        # print(formula)
         self._formula.extend(formula)
 
         formula = self._one_node_maps_to_at_least_one_state()
-        # print(formula)
         self._formula.extend(formula)
 
         formula = self._one_node_maps_to_at_most_one_state()
-        # print(formula)
         self._formula.extend(formula)
 
         formula = self._dfa_is_complete()
-        # print(formula)
         self._formula.extend(formula)
 
         formula = self._dfa_is_deterministic()
-        # print(formula)
         self._formula.extend(formula)
 
         formula = self._state_status_compatible_with_node_status()
-        # print(formula)
         self._formula.extend(formula)
 
         formula = self._mapped_adjacent_nodes_force_transition()
-        # print(formula)
         self._formula.extend(formula)
 
         formula = self._mapped_node_and_transition_force_mapping()
-        # print(formula)
         self._formula.extend(formula)
 
         return self._formula
+
+    def generate_with_new_counterexamples(self, new_from: int) -> CNF:
+        formula = self._one_node_maps_to_at_least_one_state(new_from)
+        self._formula.extend(formula)
+
+        formula = self._one_node_maps_to_at_most_one_state(new_from)
+        self._formula.extend(formula)
+
+        formula = self._state_status_compatible_with_node_status(new_from)
+        self._formula.extend(formula)
+
+        formula = self._mapped_adjacent_nodes_force_transition(new_from)
+        self._formula.extend(formula)
+
+        formula = self._mapped_node_and_transition_force_mapping(new_from)
+        self._formula.extend(formula)
+
+        return self._formula
+
+    def generate_with_new_size(self, new_size: int) -> CNF:
+        pass
 
     def _fix_start_state(self) -> CNF:
         clauses = [[self._var('x', 0, 0)]]
         return CNF(from_clauses=clauses)
 
-    def _one_node_maps_to_at_least_one_state(self) -> CNF:
+    def _one_node_maps_to_at_least_one_state(self, new_from: int = 0) -> object:
         formula = CNF()
-        for i in range(self._apta.size()):
+        for i in range(new_from, self._apta.size()):
             formula.extend(
                 CardEnc.atleast(
                     [self._var('x', i, j) for j in range(self._dfa_size)],
@@ -133,12 +154,12 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
             self._update_vpool_top(formula)
         return formula
 
-    def _one_node_maps_to_at_most_one_state(self) -> CNF:
+    def _one_node_maps_to_at_most_one_state(self, new_from: int = 0) -> CNF:
         formula = CNF()
-        for node in self._apta.nodes:
+        for i in range(new_from, self._apta.size()):
             formula.extend(
                 CardEnc.atmost(
-                    [self._var('x', node.id_, j) for j in range(self._dfa_size)],
+                    [self._var('x', i, j) for j in range(self._dfa_size)],
                     top_id=self._vpool.top
                 )
             )
@@ -171,32 +192,32 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                 self._update_vpool_top(formula)
         return formula
 
-    def _state_status_compatible_with_node_status(self) -> CNF:
+    def _state_status_compatible_with_node_status(self, new_from: int = 0) -> CNF:
         formula = CNF()
-        for node in self._apta.nodes:
-            if node.status is APTA.Node.NodeStatus.ACCEPTING:
+        for i in range(new_from, self._apta.size()):
+            if self._apta.get_node(i).is_accepting():
                 for j in range(self._dfa_size):
                     formula.extend(
                         _implication_to_clauses(
-                            self._var('x', node.id_, j),
+                            self._var('x', i, j),
                             self._var('z', j)
                         )
                     )
-            elif node.status is APTA.Node.NodeStatus.REJECTING:
+            elif self._apta.get_node(i).is_rejecting():
                 for j in range(self._dfa_size):
                     formula.extend(
                         _implication_to_clauses(
-                            self._var('x', node.id_, j),
+                            self._var('x', i, j),
                             -self._var('z', j)
                         )
                     )
         return formula
 
-    def _mapped_adjacent_nodes_force_transition(self) -> CNF:
+    def _mapped_adjacent_nodes_force_transition(self, new_from: int = 0) -> CNF:
         formula = CNF()
         for parent in self._apta.nodes:
             for label, child in parent.children.items():
-                if child:
+                if parent.id_ >= new_from or child.id_ >= new_from:
                     for from_ in range(self._dfa_size):
                         for to in range(self._dfa_size):
                             formula.extend(
@@ -210,11 +231,11 @@ class MinDFAToSATClausesGenerator(BaseClauseGenerator):
                             )
         return formula
 
-    def _mapped_node_and_transition_force_mapping(self) -> CNF:
+    def _mapped_node_and_transition_force_mapping(self, new_from: int = 0) -> CNF:
         formula = CNF()
         for parent in self._apta.nodes:
             for label, child in parent.children.items():
-                if child:
+                if parent.id_ >= new_from or child.id_ >= new_from:
                     for from_ in range(self._dfa_size):
                         for to in range(self._dfa_size):
                             formula.extend(
@@ -246,6 +267,12 @@ class BFSBasedSymBreakingClausesGenerator(BaseClauseGenerator):
         formula = self._order_children()
         self._formula.extend(formula)
         return self._formula
+
+    def generate_with_new_counterexamples(self, new_from: int) -> CNF:
+        pass
+
+    def generate_with_new_size(self, new_size: int) -> CNF:
+        pass
 
     def _define_t_variables(self) -> CNF:
         formula = CNF()

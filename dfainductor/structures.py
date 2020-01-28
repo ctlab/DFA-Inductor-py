@@ -54,6 +54,9 @@ class APTA:
     def nodes(self) -> List[Node]:
         return self._nodes
 
+    def get_node(self, i: int) -> Node:
+        return self._nodes[i]
+
     def __init__(self, input_: Union[str, list]) -> None:
         self._root = self.Node(0, self.Node.NodeStatus.UNDEFINED)
         self._alphabet = set()

@@ -5,6 +5,9 @@ from pysat.formula import IDPool, CNF
 from pysat.solvers import Solver
 
 from .reductions import *
+from .reductions import BaseClauseGenerator
+from ..examples import BaseExamplesProvider
+from ..logging import *
 from ..structures import DFA, APTA
 
 
@@ -38,15 +41,45 @@ class BaseStrategy(ABC):
         else:
             return None
 
-    def _symmetry_breaking_predicates(self) -> CNF:
+    def _get_symmetry_breaking_predicates_generator(self) -> BaseClauseGenerator:
         if self._sb_strategy == 'BFS':
-            return BFSBasedSymBreakingClausesGenerator(self._apta, self._size, self._vpool).generate()
+            return BFSBasedSymBreakingClausesGenerator(self._apta, self._size, self._vpool)
         elif self._sb_strategy == 'TIGHTBFS':
-            return TightBFSBasedSymBreakingClausesGenerator(self._apta, self._size, self._vpool).generate()
+            return TightBFSBasedSymBreakingClausesGenerator(self._apta, self._size, self._vpool)
 
 
 class ClassicSynthesizer(BaseStrategy):
     def synthesize_dfa(self) -> Optional[DFA]:
         formula = MinDFAToSATClausesGenerator(self._apta, self._size, self._vpool).generate()
-        formula.extend(self._symmetry_breaking_predicates().clauses)
+        formula.extend(self._get_symmetry_breaking_predicates_generator().generate())
         return self._try_to_synthesize_dfa(formula)
+
+
+class CegarSynthesizer(BaseStrategy):
+
+    def __init__(self,
+                 solver: Solver,
+                 apta: APTA,
+                 size: int,
+                 sb_strategy: str,
+                 examples_provider: BaseExamplesProvider) -> None:
+        super().__init__(solver, apta, size, sb_strategy)
+        self._examples_provider = examples_provider
+
+    def synthesize_dfa(self):
+        min_dfa_generator = MinDFAToSATClausesGenerator(self._apta, self._size, self._vpool)
+        symmetry_breaking_generator = self._get_symmetry_breaking_predicates_generator()
+        formula = min_dfa_generator.generate()
+        formula.extend(symmetry_breaking_generator.generate())
+        while True:
+            dfa = self._try_to_synthesize_dfa(formula)
+            if dfa:
+                counter_examples = self._examples_provider.get_counter_examples(dfa)
+                if counter_examples:
+                    log_info('An inconsistent DFA with {0} states is found.'.format(self._size))
+                    log_info('Added {0} counterexamples.'.format(len(counter_examples)))
+                    log_br()
+                    new_nodes_from = self._apta.add_examples(counter_examples)
+                    min_dfa_generator.generate_with_new_counterexamples(new_nodes_from)
+                    continue
+            return dfa

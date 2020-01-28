@@ -2,6 +2,7 @@ import sys
 
 import click
 
+from .examples import LinearAbsoluteExamplesProvider, LinearRelativeExamplesProvider, NonCegarExamplesProvider
 from .__version__ import __version__
 from .algorithms.searchers import LSUS
 from .logging import *
@@ -12,7 +13,7 @@ from .structures import APTA
     max_content_width=999,
     help_option_names=['-h', '--help']
 ))
-@click.option('-i', '--input', metavar='<PATH>', required=True, type=click.Path(exists=True),
+@click.option('-i', '--input', 'input_', metavar='<PATH>', required=True, type=click.Path(exists=True),
               help='a DFA learning input file in Abbadingo format')
 @click.option('-l', '--lower-bound', metavar='<INT>', type=int, default=1, show_default=True,
               help='lower bound of the DFA size')
@@ -25,18 +26,34 @@ from .structures import APTA
 # TODO: implement timeout
 # @click.option('-t', '--timeout', metavar='<SECONDS>', type=int, help='set timeout')
 @click.option('-s', '--solver', metavar='<SOLVER>', required=True, help='solver name')
+@click.option('-cegar', '--cegar-mode', type=click.Choice(['none', 'lin-abs', 'lin-rel']), default='none',
+              show_default=True,
+              help='counterexamples providing mode for CEGAR')
+@click.option('-init', '--initial-amount', metavar='<INT>', type=int, default=10, show_default=True,
+              help='initial amount of examples for CEGAR')
+@click.option('-step', '--step-amount', metavar='<INT>', type=int, default=10, show_default=True,
+              help='amount of examples added on each step for CEGAR')
 @click.version_option(__version__, '-v', '--version')
 def cli(input_: str,
         lower_bound: int,
         upper_bound: int,
         output: str,
         sym_breaking: str,
-        solver: str) -> None:
+        solver: str,
+        cegar_mode: str,
+        initial_amount: int,
+        step_amount: int) -> None:
     try:
-        apta = APTA(input_)
+        if cegar_mode == 'lin-abs':
+            examples_provider = LinearAbsoluteExamplesProvider(input_, initial_amount, step_amount)
+        elif cegar_mode == 'rel-abs':
+            examples_provider = LinearRelativeExamplesProvider(input_, initial_amount, step_amount)
+        else:
+            examples_provider = NonCegarExamplesProvider(input_)
+        apta = APTA(examples_provider.get_init_examples())
         log_success('Successfully built an APTA from file \'{0}\''.format(input_))
         log_info('The APTA size: {0}'.format(apta.size()))
-        searcher = LSUS(lower_bound, upper_bound, apta, solver, sym_breaking)
+        searcher = LSUS(lower_bound, upper_bound, apta, solver, sym_breaking, cegar_mode, examples_provider)
         dfa = searcher.search()
         if not dfa:
             log_info('There is no such DFA.')
