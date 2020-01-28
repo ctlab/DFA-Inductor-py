@@ -606,3 +606,10 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     )
 
         return formula
+
+
+def get_symmetry_breaking_predicates_generator(sb_strategy, apta, size, vpool) -> BaseClauseGenerator:
+    if sb_strategy == 'BFS':
+        return BFSBasedSymBreakingClausesGenerator(apta, size, vpool)
+    elif sb_strategy == 'TIGHTBFS':
+        return TightBFSBasedSymBreakingClausesGenerator(apta, size, vpool)

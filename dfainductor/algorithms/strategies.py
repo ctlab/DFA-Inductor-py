@@ -4,7 +4,6 @@ from pysat.solvers import Solver
 
 from examples import NonCegarExamplesProvider
 from .reductions import *
-from .reductions import BaseClauseGenerator
 from ..examples import BaseExamplesProvider
 from ..logging import *
 from ..structures import DFA, APTA
@@ -40,17 +39,12 @@ class BaseStrategy(ABC):
         else:
             return None
 
-    def _get_symmetry_breaking_predicates_generator(self) -> BaseClauseGenerator:
-        if self._sb_strategy == 'BFS':
-            return BFSBasedSymBreakingClausesGenerator(self._apta, self._size, self._vpool)
-        elif self._sb_strategy == 'TIGHTBFS':
-            return TightBFSBasedSymBreakingClausesGenerator(self._apta, self._size, self._vpool)
-
 
 class ClassicSynthesizer(BaseStrategy):
     def synthesize_dfa(self) -> Optional[DFA]:
         formula = MinDFAToSATClausesGenerator(self._apta, self._size, self._vpool).generate()
-        formula.extend(self._get_symmetry_breaking_predicates_generator().generate())
+        formula.extend(get_symmetry_breaking_predicates_generator(self._sb_strategy, self._apta, self._size,
+                                                                  self._vpool).generate())
         return self._try_to_synthesize_dfa(formula)
 
 
@@ -67,7 +61,8 @@ class CegarSynthesizer(BaseStrategy):
 
     def synthesize_dfa(self):
         min_dfa_generator = MinDFAToSATClausesGenerator(self._apta, self._size, self._vpool)
-        symmetry_breaking_generator = self._get_symmetry_breaking_predicates_generator()
+        symmetry_breaking_generator = get_symmetry_breaking_predicates_generator(self._sb_strategy, self._apta,
+                                                                                 self._size, self._vpool)
         formula = min_dfa_generator.generate()
         formula.extend(symmetry_breaking_generator.generate())
         while True:
