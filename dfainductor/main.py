@@ -2,7 +2,7 @@ import sys
 
 import click
 
-from .examples import LinearAbsoluteExamplesProvider, LinearRelativeExamplesProvider, NonCegarExamplesProvider
+from .examples import get_examples_provider
 from .__version__ import __version__
 from .algorithms.searchers import LSUS
 from .logging import *
@@ -44,12 +44,7 @@ def cli(input_: str,
         initial_amount: int,
         step_amount: int) -> None:
     try:
-        if cegar_mode == 'lin-abs':
-            examples_provider = LinearAbsoluteExamplesProvider(input_, initial_amount, step_amount)
-        elif cegar_mode == 'rel-abs':
-            examples_provider = LinearRelativeExamplesProvider(input_, initial_amount, step_amount)
-        else:
-            examples_provider = NonCegarExamplesProvider(input_)
+        examples_provider = get_examples_provider(input_, cegar_mode, initial_amount, step_amount)
         apta = APTA(examples_provider.get_init_examples())
         log_success('Successfully built an APTA from file \'{0}\''.format(input_))
         log_info('The APTA size: {0}'.format(apta.size()))
