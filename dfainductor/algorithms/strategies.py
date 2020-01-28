@@ -1,9 +1,8 @@
-from abc import ABC, abstractmethod
 from typing import Optional
 
-from pysat.formula import IDPool, CNF
 from pysat.solvers import Solver
 
+from examples import NonCegarExamplesProvider
 from .reductions import *
 from .reductions import BaseClauseGenerator
 from ..examples import BaseExamplesProvider
@@ -83,3 +82,14 @@ class CegarSynthesizer(BaseStrategy):
                     min_dfa_generator.generate_with_new_counterexamples(new_nodes_from)
                     continue
             return dfa
+
+
+def get_synthesizer(solver: Solver,
+                    apta: APTA,
+                    size: int,
+                    sb_strategy: str,
+                    examples_provider: BaseExamplesProvider) -> BaseStrategy:
+    if isinstance(examples_provider, NonCegarExamplesProvider):
+        return ClassicSynthesizer(solver, apta, size, sb_strategy)
+    else:
+        return CegarSynthesizer(solver, apta, size, sb_strategy, examples_provider)

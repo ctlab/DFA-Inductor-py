@@ -2,7 +2,7 @@ from typing import Optional
 
 from pysat.solvers import Solver
 
-from .strategies import CegarSynthesizer, ClassicSynthesizer
+from strategies import get_synthesizer
 from ..examples import BaseExamplesProvider
 from ..logging import *
 from ..structures import APTA, DFA
@@ -30,17 +30,11 @@ class LSUS:
         for size in range(self._lower_bound, self._upper_bound + 1):
             log_br()
             log_info('Trying to build a DFA with {0} states.'.format(size))
-            if self._cegar_mode == 'none':
-                synthesizer = ClassicSynthesizer(Solver(self._solver_name),
-                                                 self._apta,
-                                                 size,
-                                                 self._sb_strategy)
-            else:
-                synthesizer = CegarSynthesizer(Solver(self._solver_name),
-                                               self._apta,
-                                               size,
-                                               self._sb_strategy,
-                                               self._examples_provider)
+            synthesizer = get_synthesizer(Solver(self._solver_name),
+                                          self._apta,
+                                          size,
+                                          self._sb_strategy,
+                                          self._examples_provider)
             dfa = synthesizer.synthesize_dfa()
             if not dfa:
                 log_info('Not found a DFA with {0} states.'.format(size))
