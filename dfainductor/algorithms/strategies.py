@@ -2,9 +2,8 @@ from typing import Optional
 
 from pysat.solvers import Solver
 
-from examples import NonCegarExamplesProvider
 from .reductions import *
-from ..examples import BaseExamplesProvider
+from ..examples import BaseExamplesProvider, NonCegarExamplesProvider
 from ..logging import *
 from ..structures import DFA, APTA
 

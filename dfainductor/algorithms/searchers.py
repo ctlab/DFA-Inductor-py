@@ -2,7 +2,7 @@ from typing import Optional
 
 from pysat.solvers import Solver
 
-from strategies import get_synthesizer
+from .strategies import get_synthesizer
 from ..examples import BaseExamplesProvider
 from ..logging import *
 from ..structures import APTA, DFA
