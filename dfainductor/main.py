@@ -2,7 +2,7 @@ import sys
 
 import click
 
-from .examples import get_examples_provider
+from . import examples
 from .__version__ import __version__
 from .algorithms.searchers import LSUS
 from .logging import *
@@ -33,6 +33,8 @@ from .structures import APTA
               help='initial amount of examples for CEGAR')
 @click.option('-step', '--step-amount', metavar='<INT>', type=int, default=10, show_default=True,
               help='amount of examples added on each step for CEGAR')
+@click.option('-a', '--assumptions', 'with_assumptions', is_flag=True, default=False, show_default=True,
+              help='use assumptions instead of restarting solver')
 @click.version_option(__version__, '-v', '--version')
 def cli(input_: str,
         lower_bound: int,
@@ -42,14 +44,20 @@ def cli(input_: str,
         solver: str,
         cegar_mode: str,
         initial_amount: int,
-        step_amount: int) -> None:
+        step_amount: int,
+        with_assumptions: bool) -> None:
     try:
-        examples_provider = get_examples_provider(input_, cegar_mode, initial_amount, step_amount)
+        examples_provider = examples.get_examples_provider(input_, cegar_mode, initial_amount, step_amount)
         apta = APTA(examples_provider.get_init_examples())
         log_success('Successfully built an APTA from file \'{0}\''.format(input_))
         log_info('The APTA size: {0}'.format(apta.size()))
-        searcher = LSUS(lower_bound, upper_bound, apta, solver, sym_breaking, cegar_mode, examples_provider)
-        dfa = searcher.search()
+        searcher = LSUS(apta,
+                        solver,
+                        sym_breaking,
+                        cegar_mode,
+                        examples_provider,
+                        with_assumptions)
+        dfa = searcher.search(lower_bound, upper_bound)
         if not dfa:
             log_info('There is no such DFA.')
         else:
