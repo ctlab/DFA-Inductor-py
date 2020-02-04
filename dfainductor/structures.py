@@ -193,6 +193,13 @@ class DFA:
             cur_state = cur_state.get_child(label)
         return cur_state.is_accepting()
 
+    def check_consistency(self, examples: List[str]) -> bool:
+        for example in examples:
+            example_split = example.split()
+            if (example_split[0] == '1') != self.run(example_split[2:]):
+                return False
+        return True
+
     def to_dot(self) -> str:
         s = (
             "digraph DFA {\n"

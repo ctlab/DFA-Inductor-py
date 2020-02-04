@@ -34,6 +34,9 @@ class BaseExamplesProvider(ABC):
             pass
         return counter_examples
 
+    def get_all_examples(self) -> List[str]:
+        return self._examples
+
     @abstractmethod
     def _init_examples_size(self) -> int:
         pass

@@ -74,6 +74,10 @@ def cli(input_: str,
                     log_info('Dumping found DFA to console instead.')
                     log_br()
                     log_info(str(dfa))
+            if dfa.check_consistency(examples_provider.get_all_examples()):
+                log_success('DFA is consistent with the given examples.')
+            else:
+                log_error('DFA is not consistent with the given examples.')
     except IOError as err:
         log_error('Cannot build an APTA from file \'{0}\': {1}'.format(input_, err))
         sys.exit(err.errno)
