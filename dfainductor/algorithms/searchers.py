@@ -92,8 +92,10 @@ class LSUS:
                         log_info('An inconsistent DFA with {0} states is found.'.format(size))
                         log_info('Added {0} counterexamples.'.format(len(counter_examples)))
                         log_br()
-                        new_nodes_from = self._apta.add_examples(counter_examples)
-                        formula = self._mindfa_clauses_generator.generate_with_new_counterexamples(size, new_from=new_nodes_from)
+                        (new_nodes_from, changed_statuses) = self._apta.add_examples(counter_examples)
+                        formula = self._mindfa_clauses_generator.generate_with_new_counterexamples(size,
+                                                                                                   new_from=new_nodes_from,
+                                                                                                   changed_statuses=changed_statuses)
                         continue
                 break
             if not dfa:

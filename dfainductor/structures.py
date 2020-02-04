@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional, Tuple
 
 import click
 
@@ -27,8 +27,8 @@ class APTA:
         def has_child(self, label: str) -> bool:
             return label in self._children.keys()
 
-        def get_child(self, label: str) -> APTA.Node:
-            return self._children[label]
+        def get_child(self, label: str) -> Optional[APTA.Node]:
+            return self._children[label] if self.has_child(label) else None
 
         def add_child(self, label: str, node: APTA.Node) -> None:
             self._children[label] = node
@@ -70,11 +70,23 @@ class APTA:
         elif isinstance(input_, list):
             self.add_examples(input_)
 
-    def add_examples(self, examples: List[str]) -> int:
+    def _get_node_by_prefix(self, word: List[str]) -> Optional[Node]:
+        cur_state = self._root
+        for label in word:
+            cur_state = cur_state.get_child(label)
+            if not cur_state:
+                return None
+        return cur_state
+
+    def add_examples(self, examples: List[str]) -> Tuple[int, List[int]]:
+        changed_statuses = []
         old_size = self.size()
         for example in examples:
+            existing_node = self._get_node_by_prefix(example.split()[2:])
+            if existing_node:
+                changed_statuses.append(existing_node.id_)
             self.add_example(example)
-        return old_size
+        return old_size, changed_statuses
 
     def add_example(self, example: str) -> None:
         # example: status len l_1 l_2 l_3 ... l_len

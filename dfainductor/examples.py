@@ -44,6 +44,7 @@ class BaseExamplesProvider(ABC):
 
 
 class LinearAbsoluteExamplesProvider(BaseExamplesProvider):
+
     def __init__(self, input_: str, initial_examples_amount: int, counter_examples_amount: int) -> None:
         super().__init__(input_)
         self._initial_examples_amount = initial_examples_amount

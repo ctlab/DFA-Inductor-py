@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from itertools import chain
 from typing import List, Union
 
 from pysat.card import CardEnc, EncType
@@ -63,19 +64,23 @@ class BaseClausesGenerator(ABC):
 
     @abstractmethod
     def generate(self, size: int) -> CNF:
-        pass
+        return CNF()
 
     @abstractmethod
-    def generate_with_new_counterexamples(self, size: int, new_from: int) -> CNF:
-        pass
+    def generate_with_new_counterexamples(self, size: int, new_from: int, changed_statuses: List[int]) -> CNF:
+        return CNF()
 
     @abstractmethod
     def generate_with_new_size(self, old_size: int, new_size: int) -> CNF:
-        pass
+        return CNF()
 
     def _var(self, name: str, *indices: Union[str, int]) -> int:
         var: str = name + '_' + '_'.join(str(index) for index in indices)
         return self._vpool.id(var)
+
+    @staticmethod
+    def _empty_formula():
+        return CNF()
 
 
 class MinDFAToSATClausesGenerator(BaseClausesGenerator):
@@ -91,11 +96,13 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         formula.extend(self._mapped_node_and_transition_force_mapping(size))
         return formula
 
-    def generate_with_new_counterexamples(self, size: int, new_from: int) -> CNF:
+    def generate_with_new_counterexamples(self, size: int, new_from: int, changed_statuses: List[int]) -> CNF:
         formula = CNF()
         formula.extend(self._one_node_maps_to_at_least_one_state(size, new_node_from=new_from))
         formula.extend(self._one_node_maps_to_at_most_one_state(size, new_node_from=new_from))
-        formula.extend(self._state_status_compatible_with_node_status(size, new_node_from=new_from))
+        formula.extend(self._state_status_compatible_with_node_status(size,
+                                                                      new_node_from=new_from,
+                                                                      changed_statuses=changed_statuses))
         formula.extend(self._mapped_adjacent_nodes_force_transition(size, new_node_from=new_from))
         formula.extend(self._mapped_node_and_transition_force_mapping(size, new_node_from=new_from))
         return formula
@@ -205,9 +212,15 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                         )
         return formula
 
-    def _state_status_compatible_with_node_status(self, size: int, new_node_from: int = 0, old_size: int = 0) -> CNF:
+    def _state_status_compatible_with_node_status(self,
+                                                  size: int,
+                                                  new_node_from: int = 0,
+                                                  old_size: int = 0,
+                                                  changed_statuses=None) -> CNF:
+        if changed_statuses is None:
+            changed_statuses = []
         formula = CNF()
-        for i in range(new_node_from, self._apta.size()):
+        for i in chain(range(new_node_from, self._apta.size()), changed_statuses):
             if self._apta.get_node(i).is_accepting():
                 for j in range(old_size, size):
                     formula.extend(
@@ -319,8 +332,8 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
         formula.extend(self._order_children(size))
         return formula
 
-    def generate_with_new_counterexamples(self, size: int, new_from: int) -> CNF:
-        return CNF()
+    def generate_with_new_counterexamples(self, size: int, new_from: int, changed_statuses: List[int]) -> CNF:
+        return super()._empty_formula()
 
     def generate_with_new_size(self, old_size: int, new_size: int) -> CNF:
         formula = CNF()
@@ -652,15 +665,14 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
 
 
 class NoSymBreakingClausesGenerator(BaseClausesGenerator):
-
     def generate(self, size: int) -> CNF:
-        return CNF()
+        return super()._empty_formula()
 
-    def generate_with_new_counterexamples(self, size: int, new_from: int) -> CNF:
-        return CNF()
+    def generate_with_new_counterexamples(self, size: int, new_from: int, changed_statuses: List[int]) -> CNF:
+        return super()._empty_formula()
 
     def generate_with_new_size(self, old_size: int, new_size: int) -> CNF:
-        return CNF()
+        return super()._empty_formula()
 
 
 def get_symmetry_breaking_predicates_generator(sb_strategy,
