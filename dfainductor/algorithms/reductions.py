@@ -74,9 +74,10 @@ class BaseClausesGenerator(ABC):
     def generate_with_new_size(self, old_size: int, new_size: int) -> CNF:
         return CNF()
 
-    def _var(self, name: str, *indices: Union[str, int]) -> int:
-        var: str = name + '_' + '_'.join(str(index) for index in indices)
-        return self._vpool.id(var)
+    def _var(self, name: str, ind1, ind2=0, ind3=0) -> int:
+        var = f'{name}_{ind1}_{ind2}_{ind3}'
+        result = self._vpool.id(var)
+        return result
 
     @staticmethod
     def _empty_formula():
