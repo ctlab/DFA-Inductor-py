@@ -2,6 +2,7 @@ import sys
 
 import click
 
+from .statistics import STATISTICS
 from . import examples
 from .__version__ import __version__
 from .algorithms.searchers import LSUS
@@ -35,6 +36,8 @@ from .structures import APTA
               help='amount of examples added on each step for CEGAR')
 @click.option('-a', '--assumptions', 'with_assumptions', is_flag=True, default=False, show_default=True,
               help='use assumptions instead of restarting solver')
+@click.option('-stat', '--statistics', 'print_statistics', is_flag=True, default=False, show_default=True,
+              help='prints time statistics summary in the end')
 @click.version_option(__version__, '-v', '--version')
 def cli(input_: str,
         lower_bound: int,
@@ -45,12 +48,18 @@ def cli(input_: str,
         cegar_mode: str,
         initial_amount: int,
         step_amount: int,
-        with_assumptions: bool) -> None:
+        with_assumptions: bool,
+        print_statistics: bool) -> None:
     try:
+        STATISTICS.start_whole_timer()
         examples_provider = examples.get_examples_provider(input_, cegar_mode, initial_amount, step_amount)
+
+        STATISTICS.start_apta_building_timer()
         apta = APTA(examples_provider.get_init_examples())
         log_success('Successfully built an APTA from file \'{0}\''.format(input_))
         log_info('The APTA size: {0}'.format(apta.size()))
+        STATISTICS.stop_apta_building_timer()
+
         searcher = LSUS(apta,
                         solver,
                         sym_breaking,
@@ -78,6 +87,11 @@ def cli(input_: str,
                 log_success('DFA is consistent with the given examples.')
             else:
                 log_error('DFA is not consistent with the given examples.')
+        STATISTICS.stop_whole_timer()
+        if print_statistics:
+            STATISTICS.print_statistics()
+
+
     except IOError as err:
         log_error('Cannot build an APTA from file \'{0}\': {1}'.format(input_, err))
         sys.exit(err.errno)

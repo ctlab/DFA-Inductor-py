@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import List
 
 from pysat.formula import IDPool, CNF
 from pysat.solvers import Solver
@@ -6,6 +6,7 @@ from pysat.solvers import Solver
 from . import reductions
 from ..examples import BaseExamplesProvider
 from ..logging import *
+from ..statistics import STATISTICS
 from ..structures import APTA, DFA
 
 
@@ -39,11 +40,18 @@ class LSUS:
         )
 
     def _try_to_synthesize_dfa(self, formula: CNF, size: int) -> Optional[DFA]:
+        STATISTICS.start_feeding_timer()
         self._solver.append_formula(formula.clauses)
+        STATISTICS.stop_feeding_timer()
+
         assumptions = self._build_assumptions(size) if self._with_assumptions else []
         log_info('Vars in CNF: {0}'.format(self._solver.nof_vars()))
         log_info('Clauses in CNF: {0}'.format(self._solver.nof_clauses()))
+
+        STATISTICS.start_solving_timer()
         is_sat = self._solver.solve(assumptions=assumptions)
+        STATISTICS.stop_solving_timer()
+
         if is_sat:
             assignment = self._solver.get_model()
             dfa = DFA()
@@ -77,6 +85,8 @@ class LSUS:
                 log_info('Solver has been restarted.')
             log_br()
             log_info('Trying to build a DFA with {0} states.'.format(size))
+
+            STATISTICS.start_formula_timer()
             if self._with_assumptions and size > lower_bound:
                 formula = self._mindfa_clauses_generator.generate_with_new_size(old_size=size - 1, new_size=size)
                 formula.extend(self._symmetry_breaking_clauses_generator.generate_with_new_size(old_size=size - 1,
@@ -84,6 +94,8 @@ class LSUS:
             else:
                 formula = self._mindfa_clauses_generator.generate(size)
                 formula.extend(self._symmetry_breaking_clauses_generator.generate(size))
+            STATISTICS.stop_formula_timer()
+
             while True:
                 dfa = self._try_to_synthesize_dfa(formula, size)
                 if dfa:
@@ -91,11 +103,16 @@ class LSUS:
                     if counter_examples:
                         log_info('An inconsistent DFA with {0} states is found.'.format(size))
                         log_info('Added {0} counterexamples.'.format(len(counter_examples)))
-                        log_br()
+
+                        STATISTICS.start_apta_building_timer()
                         (new_nodes_from, changed_statuses) = self._apta.add_examples(counter_examples)
+                        STATISTICS.stop_apta_building_timer()
+
+                        STATISTICS.start_formula_timer()
                         formula = self._mindfa_clauses_generator.generate_with_new_counterexamples(size,
                                                                                                    new_from=new_nodes_from,
                                                                                                    changed_statuses=changed_statuses)
+                        STATISTICS.stop_formula_timer()
                         continue
                 break
             if not dfa:

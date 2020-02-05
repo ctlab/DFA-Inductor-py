@@ -1,14 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import List
-
-import click
-
 from .structures import DFA
 
 
 class BaseExamplesProvider(ABC):
 
     def __init__(self, input_: str) -> None:
+        import click
         with click.open_file(input_) as file:
             self._examples = []
             examples_number, alphabet_size = [int(x) for x in next(file).split()]
