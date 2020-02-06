@@ -3,6 +3,7 @@ from typing import List
 from pysat.formula import IDPool, CNF
 from pysat.solvers import Solver
 
+from .reductions import FORMULA
 from . import reductions
 from ..examples import BaseExamplesProvider
 from ..logging import *
@@ -34,9 +35,9 @@ class LSUS:
             self._sb_strategy
         )
 
-    def _try_to_synthesize_dfa(self, formula: CNF, size: int) -> Optional[DFA]:
+    def _try_to_synthesize_dfa(self, formula: FORMULA, size: int) -> Optional[DFA]:
         STATISTICS.start_feeding_timer()
-        self._solver.append_formula(formula.clauses)
+        self._solver.append_formula(formula)
         STATISTICS.stop_feeding_timer()
 
         assumptions = self._build_assumptions(size) if self._with_assumptions else []
