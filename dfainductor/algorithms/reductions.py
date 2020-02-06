@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from typing import List, Tuple, Iterator
 
-from pysat.card import CardEnc, EncType
 from pysat.formula import CNF, IDPool
 
 from ..structures import APTA
@@ -398,21 +397,18 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
                         )
 
 
-# TODO: fix. It doesn't work. And doesn't support for assumptions
+# TODO: fix. It doesn't support assumptions
 class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerator):
 
     def generate(self, size: int) -> FORMULA:
-        formula = CNF()
-        formula.extend(self._define_t_variables(size))
-        formula.extend(self._define_nt_variables(size))
-        formula.extend(self._define_p_variables_using_nt(size))
-        formula.extend(self._state_has_at_least_one_parent(size))
-        formula.extend(self._state_has_at_most_one_parent(size))
-        formula.extend(self._preserve_parent_order_on_children(size))
-        formula.extend(self._order_parents_using_ng_variables(size))
-        formula.extend(self._define_eq_variables(size))
-        formula.extend(self._order_children(size))
-        yield from formula
+        yield from self._define_t_variables(size)
+        yield from self._define_nt_variables(size)
+        yield from self._define_p_variables_using_nt(size)
+        yield from self._state_has_at_least_one_parent(size)
+        yield from self._state_has_at_most_one_parent(size)
+        yield from self._define_eq_variables(size)
+        yield from self._order_parents_using_ng_variables(size)
+        yield from self._order_children(size)
 
     def generate_with_new_counterexamples(self, size: int, new_from: int, changed_statuses: List[int]) -> FORMULA:
         yield from super()._empty_formula()
@@ -421,205 +417,151 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
         return super().generate_with_new_size(old_size, new_size)
 
     def _define_nt_variables(self, size: int) -> FORMULA:
-        formula = CNF()
         for child in range(2, size):
-            formula.extend(
-                _iff_to_clauses(self._var('nt', 0, child), -self._var('t', 0, child))
-            )
+            yield from _iff_to_clauses(self._var('nt', 0, child), -self._var('t', 0, child))
             for parent in range(1, child):
-                formula.extend(
-                    _iff_conjunction_to_clauses(
-                        self._var('nt', parent, child),
-                        [self._var('nt', parent - 1, child), -self._var('t', parent, child)]
-                    )
+                yield from _iff_conjunction_to_clauses(
+                    self._var('nt', parent, child),
+                    (self._var('nt', parent - 1, child), -self._var('t', parent, child))
                 )
-        yield from formula
 
     def _define_p_variables_using_nt(self, size: int) -> FORMULA:
-        formula = CNF()
         for child in range(1, size):
-            formula.extend(
-                _iff_to_clauses(self._var('p', child, 0), self._var('t', 0, child))
-            )
+            yield from _iff_to_clauses(self._var('p', child, 0), self._var('t', 0, child))
             for parent in range(1, child):
-                formula.extend(
-                    _iff_conjunction_to_clauses(
-                        self._var('p', child, parent),
-                        [self._var('t', parent, child), self._var('nt', parent - 1, child)]
-                    )
+                yield from _iff_conjunction_to_clauses(
+                    self._var('p', child, parent),
+                    (self._var('t', parent, child), self._var('nt', parent - 1, child))
                 )
-        yield from formula
 
     def _state_has_at_most_one_parent(self, size: int) -> FORMULA:
-        formula = CNF()
-        for child in range(1, size):
-            formula.extend(
-                CardEnc.atmost(
-                    [self._var('p', child, parent) for parent in range(child)],
-                    vpool=self._vpool,
-                    encoding=EncType.pairwise
+        yield from (
+            (-self._var('p', child, parent), -self._var('p', child, other_parent))
+            for child in range(1, size)
+            for parent in range(child)
+            for other_parent in range(parent)
+        )
+
+    def _define_eq_variables(self, size: int) -> FORMULA:
+        for child in range(1, size - 1):
+            for parent in range(child):
+                yield (
+                    self._var('eq', child, parent),
+                    self._var('p', child, parent),
+                    self._var('p', child + 1, parent)
                 )
-            )
-        yield from formula
+                yield (
+                    self._var('eq', child, parent),
+                    -self._var('p', child, parent),
+                    -self._var('p', child + 1, parent)
+                )
+                yield (
+                    -self._var('eq', child, parent),
+                    -self._var('p', child, parent),
+                    self._var('p', child + 1, parent)
+                )
+                yield (
+                    -self._var('eq', child, parent),
+                    self._var('p', child, parent),
+                    -self._var('p', child + 1, parent)
+                )
 
     def _order_parents_using_ng_variables(self, size: int) -> FORMULA:
-        formula = CNF()
         for child in range(1, size - 1):
-            formula.append([self._var('ng', child, child)])
-            formula.append([self._var('ng', child, 0)])
+            yield (self._var('ng', child, child),)
+            yield (self._var('ng', child, 0),)
             for parent in range(child):
-                formula.append([
+                yield (
                     -self._var('ng', child, parent),
                     self._var('ng', child, parent + 1),
                     self._var('p', child, parent)
-                ])
-                formula.append([
+                )
+                yield (
                     -self._var('ng', child, parent),
                     self._var('eq', child, parent),
                     self._var('p', child, parent)
-                ])
-                formula.append([
+                )
+                yield (
                     -self._var('ng', child, parent),
                     self._var('ng', child, parent + 1),
                     -self._var('p', child + 1, parent)
-                ])
-                formula.append([
+                )
+                yield (
                     -self._var('ng', child, parent),
                     self._var('eq', child, parent),
                     -self._var('p', child + 1, parent)
-                ])
-                formula.append([
+                )
+                yield (
                     self._var('ng', child, parent),
                     -self._var('ng', child, parent + 1),
                     -self._var('eq', child, parent)
-                ])
-                formula.append([
+                )
+                yield (
                     self._var('ng', child, parent),
                     -self._var('p', child, parent),
                     self._var('p', child + 1, parent)
-                ])
-        yield from formula
-
-    def _define_eq_variables(self, size: int) -> FORMULA:
-        formula = CNF()
-        for child in range(1, size - 1):
-            for parent in range(child):
-                formula.append([
-                    self._var('eq', child, parent),
-                    self._var('p', child, parent),
-                    self._var('p', child + 1, parent)
-                ])
-                formula.append([
-                    self._var('eq', child, parent),
-                    -self._var('p', child, parent),
-                    -self._var('p', child + 1, parent)
-                ])
-                formula.append([
-                    -self._var('eq', child, parent),
-                    -self._var('p', child, parent),
-                    self._var('p', child + 1, parent)
-                ])
-                formula.append([
-                    -self._var('eq', child, parent),
-                    self._var('p', child, parent),
-                    -self._var('p', child + 1, parent)
-                ])
-        yield from formula
+                )
 
     def _order_children(self, size: int, old_size: int = 0) -> FORMULA:
-        formula = CNF()
         if self._alphabet_size == 2:
-            formula.extend(self._order_children_with_binary_alphabet(size))
+            yield from self._order_children_with_binary_alphabet(size)
         elif self._alphabet_size > 2:
-            formula.extend(self._define_ny_variables(size))
-            formula.extend(self._define_m_variables_with_ny(size))
-            formula.extend(self._define_zm_variables(size))
-            formula.extend(self._order_children_using_zm(size))
-        yield from formula
+            yield from self._define_ny_variables(size)
+            yield from self._define_m_variables_with_ny(size)
+            yield from self._define_zm_variables(size)
+            yield from self._order_children_using_zm(size)
 
     def _define_ny_variables(self, size: int) -> FORMULA:
-        formula = CNF()
         for child in range(size):
             for parent in range(child):
-                formula.extend(
-                    _iff_to_clauses(
-                        self._var('ny', parent, 0, child),
-                        -self._var('y', parent, 0, child),
-                    )
+                yield from _iff_to_clauses(
+                    self._var('ny', parent, 0, child),
+                    -self._var('y', parent, 0, child),
                 )
                 for l_num in range(1, self._alphabet_size):
-                    formula.extend(
-                        _iff_conjunction_to_clauses(
-                            self._var('ny', parent, l_num, child),
-                            [
-                                -self._var('y', parent, l_num, child),
-                                self._var('ny', parent, l_num - 1, child)
-                            ]
-                        )
+                    yield from _iff_conjunction_to_clauses(
+                        self._var('ny', parent, l_num, child),
+                        (-self._var('y', parent, l_num, child), self._var('ny', parent, l_num - 1, child))
                     )
-        yield from formula
 
     def _define_m_variables_with_ny(self, size: int) -> FORMULA:
-        formula = CNF()
         for child in range(size):
             for parent in range(child):
-                formula.extend(
-                    _iff_to_clauses(
-                        self._var('m', parent, 0, child),
-                        self._var('y', parent, 0, child),
-                    )
+                yield from _iff_to_clauses(
+                    self._var('m', parent, 0, child),
+                    self._var('y', parent, 0, child),
                 )
                 for l_num in range(1, self._alphabet_size):
-                    formula.extend(
-                        _iff_conjunction_to_clauses(
-                            self._var('m', parent, l_num, child),
-                            [
-                                self._var('y', parent, l_num, child),
-                                self._var('ny', parent, l_num - 1, child)
-                            ]
-                        )
+                    yield from _iff_conjunction_to_clauses(
+                        self._var('m', parent, l_num, child),
+                        (self._var('y', parent, l_num, child), self._var('ny', parent, l_num - 1, child))
                     )
-        yield from formula
 
     def _define_zm_variables(self, size: int) -> FORMULA:
-        formula = CNF()
         for child in range(size):
             for parent in range(child):
-                formula.extend(
-                    _iff_to_clauses(
-                        self._var('zm', parent, 0, child),
-                        -self._var('m', parent, 0, child),
-                    )
+                yield from _iff_to_clauses(
+                    self._var('zm', parent, 0, child),
+                    -self._var('m', parent, 0, child),
                 )
                 for l_num in range(1, self._alphabet_size):
-                    formula.extend(
-                        _iff_conjunction_to_clauses(
-                            self._var('zm', parent, l_num, child),
-                            [
-                                self._var('zm', parent, l_num - 1, child),
-                                -self._var('m', parent, l_num, child)
-                            ]
-                        )
+                    yield from _iff_conjunction_to_clauses(
+                        self._var('zm', parent, l_num, child),
+                        (self._var('zm', parent, l_num - 1, child), -self._var('m', parent, l_num, child))
                     )
-        yield from formula
 
     def _order_children_using_zm(self, size: int) -> FORMULA:
-        formula = CNF()
         for child in range(size - 1):
             for parent in range(child):
                 for l_num in range(1, self._alphabet_size):
-                    formula.extend(
-                        _conjunction_implies_to_clauses(
-                            [
-                                self._var('p', child, parent),
-                                self._var('p', child + 1, parent),
-                                self._var('m', parent, l_num, child)
-                            ],
-                            self._var('zm', parent, l_num - 1, child + 1)
-                        )
+                    yield from _conjunction_implies_to_clauses(
+                        (
+                            self._var('p', child, parent),
+                            self._var('p', child + 1, parent),
+                            self._var('m', parent, l_num, child)
+                        ),
+                        self._var('zm', parent, l_num - 1, child + 1)
                     )
-
-        yield from formula
 
 
 class NoSymBreakingClausesGenerator(BaseClausesGenerator):
