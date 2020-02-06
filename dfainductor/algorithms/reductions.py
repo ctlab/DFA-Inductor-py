@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from itertools import chain
-from typing import List, Union
+from typing import List
 
 from pysat.card import CardEnc, EncType
 from pysat.formula import CNF, IDPool
@@ -82,6 +82,34 @@ class BaseClausesGenerator(ABC):
     @staticmethod
     def _empty_formula():
         return CNF()
+
+
+class ClauseGenerator(BaseClausesGenerator):
+
+    def __init__(self, apta: APTA, vpool: IDPool, with_assumptions: bool, sb_strategy: str) -> None:
+        super().__init__(apta, vpool, with_assumptions)
+        self._mindfa_generator = MinDFAToSATClausesGenerator(apta, vpool, with_assumptions)
+        if sb_strategy == 'BFS':
+            self._sb_generator = BFSBasedSymBreakingClausesGenerator(apta, vpool, with_assumptions)
+        elif sb_strategy == 'TIGHTBFS':
+            self._sb_generator = TightBFSBasedSymBreakingClausesGenerator(apta, vpool, with_assumptions)
+        else:
+            self._sb_generator = NoSymBreakingClausesGenerator(apta, vpool, with_assumptions)
+
+    def generate(self, size: int) -> CNF:
+        formula = self._mindfa_generator.generate(size)
+        formula.extend(self._sb_generator.generate(size))
+        return formula
+
+    def generate_with_new_counterexamples(self, size: int, new_from: int, changed_statuses: List[int]) -> CNF:
+        formula = self._mindfa_generator.generate_with_new_counterexamples(size, new_from, changed_statuses)
+        formula.extend(self._sb_generator.generate_with_new_counterexamples(size, new_from, changed_statuses))
+        return formula
+
+    def generate_with_new_size(self, old_size: int, new_size: int) -> CNF:
+        formula = self._mindfa_generator.generate_with_new_size(old_size, new_size)
+        formula.extend(self._sb_generator.generate_with_new_size(old_size, new_size))
+        return formula
 
 
 class MinDFAToSATClausesGenerator(BaseClausesGenerator):

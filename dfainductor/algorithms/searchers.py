@@ -27,16 +27,11 @@ class LSUS:
         self._examples_provider = examples_provider
         self._with_assumptions = with_assumptions
         self._vpool = IDPool()
-        self._mindfa_clauses_generator = reductions.MinDFAToSATClausesGenerator(
+        self._clause_generator = reductions.ClauseGenerator(
             self._apta,
             self._vpool,
-            self._with_assumptions
-        )
-        self._symmetry_breaking_clauses_generator = reductions.get_symmetry_breaking_predicates_generator(
-            self._sb_strategy,
-            self._apta,
-            self._vpool,
-            self._with_assumptions
+            self._with_assumptions,
+            self._sb_strategy
         )
 
     def _try_to_synthesize_dfa(self, formula: CNF, size: int) -> Optional[DFA]:
@@ -88,12 +83,9 @@ class LSUS:
 
             STATISTICS.start_formula_timer()
             if self._with_assumptions and size > lower_bound:
-                formula = self._mindfa_clauses_generator.generate_with_new_size(old_size=size - 1, new_size=size)
-                formula.extend(self._symmetry_breaking_clauses_generator.generate_with_new_size(old_size=size - 1,
-                                                                                                new_size=size))
+                formula = self._clause_generator.generate_with_new_size(size - 1, size)
             else:
-                formula = self._mindfa_clauses_generator.generate(size)
-                formula.extend(self._symmetry_breaking_clauses_generator.generate(size))
+                formula = self._clause_generator.generate(size)
             STATISTICS.stop_formula_timer()
 
             while True:
@@ -109,9 +101,9 @@ class LSUS:
                         STATISTICS.stop_apta_building_timer()
 
                         STATISTICS.start_formula_timer()
-                        formula = self._mindfa_clauses_generator.generate_with_new_counterexamples(size,
-                                                                                                   new_from=new_nodes_from,
-                                                                                                   changed_statuses=changed_statuses)
+                        formula = self._clause_generator.generate_with_new_counterexamples(size,
+                                                                                           new_nodes_from,
+                                                                                           changed_statuses)
                         STATISTICS.stop_formula_timer()
                         continue
                 break
