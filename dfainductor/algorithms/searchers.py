@@ -51,11 +51,12 @@ class LSUS:
             assignment = self._solver.get_model()
             dfa = DFA()
             for i in range(size):
-                dfa.add_state(DFA.State.StateStatus.from_bool(assignment[self._vpool.id('z_{0}_0_0'.format(i)) - 1] > 0))
+                dfa.add_state(
+                    DFA.State.StateStatus.from_bool(assignment[self._vpool.id(f'z_{i}_0_0') - 1] > 0))
             for i in range(size):
                 for label in self._apta.alphabet:
                     for j in range(size):
-                         if assignment[self._vpool.id('y_{0}_{1}_{2}'.format(i, label, j)) - 1] > 0:
+                        if assignment[self._vpool.id(f'y_{i}_{label}_{j}') - 1] > 0:
                             dfa.add_transition(i, label, j)
             return dfa
         else:
