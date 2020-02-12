@@ -1,6 +1,6 @@
 from typing import List
 
-from pysat.formula import IDPool, CNF
+from pysat.formula import IDPool
 from pysat.solvers import Solver
 
 from .reductions import FORMULA
@@ -8,19 +8,21 @@ from . import reductions
 from ..examples import BaseExamplesProvider
 from ..logging import *
 from ..statistics import STATISTICS
-from ..structures import APTA, DFA
+from ..structures import APTA, DFA, InconsistencyGraph
 
 
 class LSUS:
 
     def __init__(self,
                  apta: APTA,
+                 ig: InconsistencyGraph,
                  solver_name: str,
                  sb_strategy: str,
                  cegar_mode: str,
                  examples_provider: BaseExamplesProvider,
                  with_assumptions: bool) -> None:
         self._apta = apta
+        self._ig = ig
         self._solver_name = solver_name
         self._solver = None
         self._sb_strategy = sb_strategy
@@ -30,6 +32,7 @@ class LSUS:
         self._vpool = IDPool()
         self._clause_generator = reductions.ClauseGenerator(
             self._apta,
+            self._ig,
             self._vpool,
             self._with_assumptions,
             self._sb_strategy
@@ -65,11 +68,11 @@ class LSUS:
 
     def _build_assumptions(self, size: int) -> List[int]:
         assumptions = []
-        for v in range(self._apta.size()):
+        for v in range(self._apta.size):
             assumptions.append(self._vpool.id('alo_x_{0}_{1}'.format(size, v)))
 
         for i in range(size):
-            for l_id in range(self._apta.alphabet_size()):
+            for l_id in range(self._apta.alphabet_size):
                 assumptions.append(self._vpool.id('alo_y_{0}_{1}_{2}'.format(size, i, l_id)))
         return assumptions
 

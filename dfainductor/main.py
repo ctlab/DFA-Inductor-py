@@ -2,12 +2,12 @@ import sys
 
 import click
 
-from .statistics import STATISTICS
 from . import examples
 from .__version__ import __version__
 from .algorithms.searchers import LSUS
 from .logging import *
-from .structures import APTA
+from .statistics import STATISTICS
+from .structures import APTA, InconsistencyGraph as IG
 
 
 @click.command(context_settings=dict(
@@ -57,10 +57,16 @@ def cli(input_: str,
         STATISTICS.start_apta_building_timer()
         apta = APTA(examples_provider.get_init_examples())
         log_success('Successfully built an APTA from file \'{0}\''.format(input_))
-        log_info('The APTA size: {0}'.format(apta.size()))
+        log_info('The APTA size: {0}'.format(apta.size))
         STATISTICS.stop_apta_building_timer()
 
+        STATISTICS.start_ig_building_timer()
+        ig = IG(apta)
+        log_success('Successfully built an IG')
+        STATISTICS.stop_ig_building_timer()
+
         searcher = LSUS(apta,
+                        ig,
                         solver,
                         sym_breaking,
                         cegar_mode,
@@ -90,8 +96,6 @@ def cli(input_: str,
         STATISTICS.stop_whole_timer()
         if print_statistics:
             STATISTICS.print_statistics()
-
-
     except IOError as err:
         log_error('Cannot build an APTA from file \'{0}\': {1}'.format(input_, err))
         sys.exit(err.errno)

@@ -10,6 +10,10 @@ class STATISTICS:
     APTA_SUM = 0
     APTA_CUR = 0
 
+    IG_NAME = 'IG building'
+    IG_SUM = 0
+    IG_CUR = 0
+
     FORMULA_NAME = 'Formula building'
     FORMULA_SUM = 0
     FORMULA_CUR = 0
@@ -53,6 +57,7 @@ class STATISTICS:
     def print_statistics(cls):
         log_br()
         log_statistics(cls.APTA_NAME, cls.APTA_SUM)
+        log_statistics(cls.IG_NAME, cls.IG_SUM)
         log_statistics(cls.FORMULA_NAME, cls.FORMULA_SUM)
         log_statistics(cls.FEEDING_NAME, cls.FEEDING_SUM)
         log_statistics(cls.SOLVING_NAME, cls.SOLVING_SUM)
@@ -76,6 +81,23 @@ class STATISTICS:
         log_time(cls.APTA_NAME + 'time', total_time)
         cls.APTA_SUM += total_time
         cls.APTA_CUR = 0
+        return total_time
+
+    @classmethod
+    def start_ig_building_timer(cls) -> None:
+        if cls.IG_CUR != 0:
+            raise TimerWasNotStoppedBeforeNewStart(cls.IG_NAME)
+        cls.IG_CUR = timer()
+
+    @classmethod
+    def stop_ig_building_timer(cls) -> float:
+        end_time = timer()
+        total_time = end_time - cls.IG_CUR
+        if cls.IG_CUR == 0:
+            raise TimerWasNotStartedBeforeStopped(cls.IG_NAME)
+        log_time(cls.IG_NAME + 'time', total_time)
+        cls.IG_SUM += total_time
+        cls.IG_CUR = 0
         return total_time
 
     @classmethod

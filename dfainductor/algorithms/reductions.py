@@ -4,7 +4,7 @@ from typing import List, Tuple, Iterator
 
 from pysat.formula import CNF, IDPool
 
-from ..structures import APTA
+from ..structures import APTA, InconsistencyGraph
 
 CLAUSE = Tuple[int, ...]
 FORMULA = Iterator[CLAUSE]
@@ -60,8 +60,9 @@ def _iff_conjunction_to_clauses(lhs: int, rhs: CLAUSE) -> FORMULA:
 
 class BaseClausesGenerator(ABC):
 
-    def __init__(self, apta: APTA, vpool: IDPool, with_assumptions: bool) -> None:
+    def __init__(self, apta: APTA, ig: InconsistencyGraph, vpool: IDPool, with_assumptions: bool) -> None:
         self._apta = apta
+        self._ig = ig
         self._vpool = vpool
         self._with_assumptions = with_assumptions
         self._alphabet = self._apta.alphabet
@@ -91,15 +92,15 @@ class BaseClausesGenerator(ABC):
 
 class ClauseGenerator(BaseClausesGenerator):
 
-    def __init__(self, apta: APTA, vpool: IDPool, with_assumptions: bool, sb_strategy: str) -> None:
-        super().__init__(apta, vpool, with_assumptions)
-        self._mindfa_generator = MinDFAToSATClausesGenerator(apta, vpool, with_assumptions)
-        if sb_strategy == 'BFS':
-            self._sb_generator = BFSBasedSymBreakingClausesGenerator(apta, vpool, with_assumptions)
-        elif sb_strategy == 'TIGHTBFS':
-            self._sb_generator = TightBFSBasedSymBreakingClausesGenerator(apta, vpool, with_assumptions)
+    def __init__(self, apta: APTA, ig: InconsistencyGraph, vpool: IDPool, with_assumptions: bool, sb: str) -> None:
+        super().__init__(apta, ig, vpool, with_assumptions)
+        self._mindfa_generator = MinDFAToSATClausesGenerator(apta, ig, vpool, with_assumptions)
+        if sb == 'BFS':
+            self._sb_generator = BFSBasedSymBreakingClausesGenerator(apta, ig, vpool, with_assumptions)
+        elif sb == 'TIGHTBFS':
+            self._sb_generator = TightBFSBasedSymBreakingClausesGenerator(apta, ig, vpool, with_assumptions)
         else:
-            self._sb_generator = NoSymBreakingClausesGenerator(apta, vpool, with_assumptions)
+            self._sb_generator = NoSymBreakingClausesGenerator(apta, ig, vpool, with_assumptions)
 
     def generate(self, size: int) -> FORMULA:
         yield from self._mindfa_generator.generate(size)
@@ -124,6 +125,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         yield from self._state_status_compatible_with_node_status(size)
         yield from self._mapped_adjacent_nodes_force_transition(size)
         yield from self._mapped_node_and_transition_force_mapping(size)
+        yield from self._inconsistency_graph_constraints(size)
 
     def generate_with_new_counterexamples(self, size: int, new_from: int, changed_statuses: List[int]) -> FORMULA:
         yield from self._one_node_maps_to_at_least_one_state(size, new_node_from=new_from)
@@ -160,7 +162,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
     def _one_node_maps_to_at_least_one_state_classic(self, size: int, new_node_from: int = 0) -> FORMULA:
         yield from (
             tuple(self._var('x', i, j) for j in range(size))
-            for i in range(new_node_from, self._apta.size())
+            for i in range(new_node_from, self._apta.size)
         )
 
     def _one_node_maps_to_at_least_one_state_with_assumptions(self,
@@ -171,19 +173,19 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
             yield from (
                 tuple(self._var('x', i, j) for j in range(old_size, size)) +
                 (-self._var('alo_x', size, i),)
-                for i in range(new_node_from, self._apta.size())
+                for i in range(new_node_from, self._apta.size)
             )
         else:
             yield from (
                 tuple(self._var('x', i, j) for j in range(old_size, size)) +
                 (-self._var('alo_x', size, i), self._var('alo_x', old_size, i))
-                for i in range(new_node_from, self._apta.size())
+                for i in range(new_node_from, self._apta.size)
             )
 
     def _one_node_maps_to_at_most_one_state(self, size: int, new_node_from: int = 0, old_size: int = 0) -> FORMULA:
         yield from (
             (-self._var('x', v, i), -self._var('x', v, j))
-            for v in range(new_node_from, self._apta.size())
+            for v in range(new_node_from, self._apta.size)
             for i in range(old_size, size)
             for j in range(0, i)
         )
@@ -246,7 +248,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                                                   changed_statuses=None) -> FORMULA:
         if changed_statuses is None:
             changed_statuses = []
-        for i in chain(range(new_node_from, self._apta.size()), changed_statuses):
+        for i in chain(range(new_node_from, self._apta.size), changed_statuses):
             if self._apta.get_node(i).is_accepting():
                 for j in range(old_size, size):
                     yield from _implication_to_clauses(self._var('x', i, j), self._var('z', j))
@@ -303,6 +305,14 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                                     (self._var('x', parent.id_, from_), self._var('y', from_, label, to),),
                                     self._var('x', child.id_, to)
                                 )
+
+    def _inconsistency_graph_constraints(self, size: int, new_node_from: int = 0, old_size: int = 0) -> FORMULA:
+        for node1 in range(self._ig.size):
+            for node2 in self._ig.edges[node1]:
+                if node1 >= new_node_from or node2 >= new_node_from:
+                    yield from (
+                        (-self._var('x', node1, s), -self._var('x', node2, s)) for s in range(old_size, size)
+                    )
 
 
 class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
@@ -573,15 +583,3 @@ class NoSymBreakingClausesGenerator(BaseClausesGenerator):
 
     def generate_with_new_size(self, old_size: int, new_size: int) -> FORMULA:
         return super()._empty_formula()
-
-
-def get_symmetry_breaking_predicates_generator(sb_strategy,
-                                               apta,
-                                               vpool,
-                                               with_assumptions: bool) -> BaseClausesGenerator:
-    if sb_strategy == 'BFS':
-        return BFSBasedSymBreakingClausesGenerator(apta, vpool, with_assumptions)
-    elif sb_strategy == 'TIGHTBFS':
-        return TightBFSBasedSymBreakingClausesGenerator(apta, vpool, with_assumptions)
-    else:
-        return NoSymBreakingClausesGenerator(apta, vpool, with_assumptions)
