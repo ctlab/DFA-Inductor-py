@@ -60,11 +60,11 @@ def _iff_conjunction_to_clauses(lhs: int, rhs: CLAUSE) -> FORMULA:
 
 class BaseClausesGenerator(ABC):
 
-    def __init__(self, apta: APTA, ig: InconsistencyGraph, vpool: IDPool, with_assumptions: bool) -> None:
+    def __init__(self, apta: APTA, ig: InconsistencyGraph, vpool: IDPool, assumptions_mode: str) -> None:
         self._apta = apta
         self._ig = ig
         self._vpool = vpool
-        self._with_assumptions = with_assumptions
+        self._assumptions_mode = assumptions_mode
         self._alphabet = self._apta.alphabet
         self._alphabet_size = len(self._alphabet)
 
@@ -92,15 +92,15 @@ class BaseClausesGenerator(ABC):
 
 class ClauseGenerator(BaseClausesGenerator):
 
-    def __init__(self, apta: APTA, ig: InconsistencyGraph, vpool: IDPool, with_assumptions: bool, sb: str) -> None:
-        super().__init__(apta, ig, vpool, with_assumptions)
-        self._mindfa_generator = MinDFAToSATClausesGenerator(apta, ig, vpool, with_assumptions)
+    def __init__(self, apta: APTA, ig: InconsistencyGraph, vpool: IDPool, assumptions_mode: str, sb: str) -> None:
+        super().__init__(apta, ig, vpool, assumptions_mode)
+        self._mindfa_generator = MinDFAToSATClausesGenerator(apta, ig, vpool, assumptions_mode)
         if sb == 'BFS':
-            self._sb_generator = BFSBasedSymBreakingClausesGenerator(apta, ig, vpool, with_assumptions)
+            self._sb_generator = BFSBasedSymBreakingClausesGenerator(apta, ig, vpool, assumptions_mode)
         elif sb == 'TIGHTBFS':
-            self._sb_generator = TightBFSBasedSymBreakingClausesGenerator(apta, ig, vpool, with_assumptions)
+            self._sb_generator = TightBFSBasedSymBreakingClausesGenerator(apta, ig, vpool, assumptions_mode)
         else:
-            self._sb_generator = NoSymBreakingClausesGenerator(apta, ig, vpool, with_assumptions)
+            self._sb_generator = NoSymBreakingClausesGenerator(apta, ig, vpool, assumptions_mode)
 
     def generate(self, size: int) -> FORMULA:
         yield from self._mindfa_generator.generate(size)
@@ -118,7 +118,7 @@ class ClauseGenerator(BaseClausesGenerator):
 class MinDFAToSATClausesGenerator(BaseClausesGenerator):
     def generate(self, size: int) -> FORMULA:
         yield from self._fix_start_state()
-        yield from self._one_node_maps_to_at_least_one_state(size)
+        yield from self._one_node_maps_to_alo_state(size)
         yield from self._one_node_maps_to_at_most_one_state(size)
         yield from self._dfa_is_complete(size)
         yield from self._dfa_is_deterministic(size)
@@ -128,7 +128,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         yield from self._inconsistency_graph_constraints(size)
 
     def generate_with_new_counterexamples(self, size: int, new_from: int, changed_statuses: List[int]) -> FORMULA:
-        yield from self._one_node_maps_to_at_least_one_state(size, new_node_from=new_from)
+        yield from self._one_node_maps_to_alo_state(size, new_node_from=new_from)
         yield from self._one_node_maps_to_at_most_one_state(size, new_node_from=new_from)
         yield from self._state_status_compatible_with_node_status(size,
                                                                   new_node_from=new_from,
@@ -137,7 +137,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         yield from self._mapped_node_and_transition_force_mapping(size, new_node_from=new_from)
 
     def generate_with_new_size(self, old_size: int, new_size: int) -> FORMULA:
-        yield from self._one_node_maps_to_at_least_one_state(new_size, old_size=old_size)
+        yield from self._one_node_maps_to_alo_state(new_size, old_size=old_size)
         yield from self._one_node_maps_to_at_most_one_state(new_size, old_size=old_size)
         yield from self._dfa_is_complete(new_size, old_size=old_size)
         yield from self._dfa_is_deterministic(new_size, old_size=old_size)
@@ -148,27 +148,29 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
     def _fix_start_state(self) -> FORMULA:
         yield (self._var('x', 0, 0),)
 
-    def _one_node_maps_to_at_least_one_state(self,
-                                             size: int,
-                                             new_node_from: int = 0,
-                                             old_size: int = 0) -> FORMULA:
-        if not self._with_assumptions:
-            yield from self._one_node_maps_to_at_least_one_state_classic(size, new_node_from=new_node_from)
-        else:
-            yield from self._one_node_maps_to_at_least_one_state_with_assumptions(size,
-                                                                                  new_node_from=new_node_from,
-                                                                                  old_size=old_size)
+    def _one_node_maps_to_alo_state(self,
+                                    size: int,
+                                    new_node_from: int = 0,
+                                    old_size: int = 0) -> FORMULA:
+        if self._assumptions_mode == 'none':
+            yield from self._one_node_maps_to_alo_state_classic(size, new_node_from=new_node_from)
+        elif self._assumptions_mode == 'chain':
+            yield from self._one_node_maps_to_alo_state_chain(size,
+                                                              new_node_from=new_node_from,
+                                                              old_size=old_size)
+        elif self._assumptions_mode == 'switch':
+            yield from self._one_node_maps_to_alo_state_switch(size, new_node_from=new_node_from)
 
-    def _one_node_maps_to_at_least_one_state_classic(self, size: int, new_node_from: int = 0) -> FORMULA:
+    def _one_node_maps_to_alo_state_classic(self, size: int, new_node_from: int = 0) -> FORMULA:
         yield from (
             tuple(self._var('x', i, j) for j in range(size))
             for i in range(new_node_from, self._apta.size)
         )
 
-    def _one_node_maps_to_at_least_one_state_with_assumptions(self,
-                                                              size: int,
-                                                              new_node_from: int = 0,
-                                                              old_size: int = 0) -> FORMULA:
+    def _one_node_maps_to_alo_state_chain(self,
+                                          size: int,
+                                          new_node_from: int = 0,
+                                          old_size: int = 0) -> FORMULA:
         if old_size == 0:
             yield from (
                 tuple(self._var('x', i, j) for j in range(old_size, size)) +
@@ -182,6 +184,12 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                 for i in range(new_node_from, self._apta.size)
             )
 
+    def _one_node_maps_to_alo_state_switch(self, size: int, new_node_from: int = 0) -> FORMULA:
+        yield from (
+            tuple(self._var('x', i, j) for j in range(size)) + (self._var('sw_x', size, i),)
+            for i in range(new_node_from, self._apta.size)
+        )
+
     def _one_node_maps_to_at_most_one_state(self, size: int, new_node_from: int = 0, old_size: int = 0) -> FORMULA:
         yield from (
             (-self._var('x', v, i), -self._var('x', v, j))
@@ -191,10 +199,12 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         )
 
     def _dfa_is_complete(self, size: int, old_size: int = 0):
-        if not self._with_assumptions:
+        if self._assumptions_mode == 'none':
             yield from self._dfa_is_complete_classic(size)
-        else:
-            yield from self._dfa_is_complete_with_assumptions(size, old_size=old_size)
+        elif self._assumptions_mode == 'chain':
+            yield from self._dfa_is_complete_chain(size, old_size=old_size)
+        elif self._assumptions_mode == 'switch':
+            yield from self._dfa_is_complete_switch(size)
 
     def _dfa_is_complete_classic(self, size: int) -> FORMULA:
         yield from (
@@ -203,7 +213,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
             for l_id in range(self._alphabet_size)
         )
 
-    def _dfa_is_complete_with_assumptions(self, size: int, old_size: int = 0) -> FORMULA:
+    def _dfa_is_complete_chain(self, size: int, old_size: int = 0) -> FORMULA:
         if old_size == 0:
             yield from (
                 tuple(self._var('y', i, l_id, j) for j in range(old_size, size)) +
@@ -223,6 +233,13 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
             (-self._var('alo_y', size, i, l_id),)
             for l_id in range(self._alphabet_size)
             for i in range(old_size, size)
+        )
+
+    def _dfa_is_complete_switch(self, size: int) -> FORMULA:
+        yield from (
+            tuple(self._var('y', i, l_id, j) for j in range(size)) + (self._var('sw_y', size, i, l_id),)
+            for i in range(size)
+            for l_id in range(self._alphabet_size)
         )
 
     def _dfa_is_deterministic(self, size: int, old_size: int = 0) -> FORMULA:

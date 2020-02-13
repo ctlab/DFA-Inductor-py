@@ -34,8 +34,8 @@ from .structures import APTA, InconsistencyGraph as IG
               help='initial amount of examples for CEGAR')
 @click.option('-step', '--step-amount', metavar='<INT>', type=int, default=10, show_default=True,
               help='amount of examples added on each step for CEGAR')
-@click.option('-a', '--assumptions', 'with_assumptions', is_flag=True, default=False, show_default=True,
-              help='use assumptions instead of restarting solver')
+@click.option('-a', '--assumptions', 'assumptions_mode', type=click.Choice(['none', 'switch', 'chain']),
+              default='none', show_default=True, help='assumptions mode')
 @click.option('-stat', '--statistics', 'print_statistics', is_flag=True, default=False, show_default=True,
               help='prints time statistics summary in the end')
 @click.version_option(__version__, '-v', '--version')
@@ -48,7 +48,7 @@ def cli(input_: str,
         cegar_mode: str,
         initial_amount: int,
         step_amount: int,
-        with_assumptions: bool,
+        assumptions_mode: str,
         print_statistics: bool) -> None:
     try:
         STATISTICS.start_whole_timer()
@@ -71,7 +71,7 @@ def cli(input_: str,
                         sym_breaking,
                         cegar_mode,
                         examples_provider,
-                        with_assumptions)
+                        assumptions_mode)
         dfa = searcher.search(lower_bound, upper_bound)
         if not dfa:
             log_info('There is no such DFA.')
