@@ -255,45 +255,33 @@ class DFA:
 
 class InconsistencyGraph:
     def __init__(self, apta: APTA) -> None:
-        self._edges: List[Set[int]] = [set() for _ in range(apta.size)]
         self._apta = apta
-        self._find_edges(apta.root)
+        self._size = apta.size
+        self._edges: List[Set[int]] = [set() for _ in range(self.size)]
 
-    def _add_edge(self, id1: int, id2: int):
-        self._edges[min(id1, id2)].add(max(id1, id2))
+        for node_id in range(apta.size):
+            for other_id in range(node_id):
+                if not self._try_to_merge(self._apta.get_node(node_id), self._apta.get_node(other_id), {}):
+                    self._edges[node_id].add(other_id)
 
     def _has_edge(self, id1: int, id2: int):
         return id2 in self._edges[id1] or id1 in self._edges[id2]
 
     @property
     def size(self) -> int:
-        return self._apta.size
+        return self._size
 
     @property
     def edges(self) -> List[Set[int]]:
         return self._edges
 
-    def _find_edges(self, node: APTA.Node) -> None:
-        for child in node.children.values():
-            self._find_edges(child)
-
-        for other_id in range(node.id_ + 1, self.size):
-            other_node = self._apta.get_node(other_id)
-            reps = {}
-            if not self._try_to_merge(node, other_node, reps):
-                self._add_edge(node.id_, other_id)
-
     def _try_to_merge(self,
                       node: APTA.Node,
                       other: APTA.Node,
                       reps: Dict[int, Tuple[int, APTA.Node.NodeStatus]]) -> bool:
-        if self._has_edge(node.id_, other.id_):
-            return False
 
         (node_rep_num, node_rep_st) = reps.get(node.id_, (node.id_, node.status))
-        (other_rep_num, other_rep_st) = reps.get(other.id_, (other.id_, other.status))
-        if self._has_edge(node_rep_num, other_rep_num):
-            return False
+        (other_rep_num, other_rep_st) = (other.id_, other.status)
 
         if node_rep_st.is_acc() and other_rep_st.is_rej() or node_rep_st.is_rej() and other_rep_st.is_acc():
             return False
