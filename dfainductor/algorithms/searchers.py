@@ -3,7 +3,6 @@ from typing import List
 from pysat.formula import IDPool
 from pysat.solvers import Solver
 
-from .reductions import FORMULA
 from . import reductions
 from ..examples import BaseExamplesProvider
 from ..logging import *
@@ -24,7 +23,7 @@ class LSUS:
         self._apta = apta
         self._ig = ig
         self._solver_name = solver_name
-        self._solver = None
+        self._solver: Solver = None
         self._sb_strategy = sb_strategy
         self._cegar_mode = cegar_mode
         self._examples_provider = examples_provider
@@ -33,11 +32,7 @@ class LSUS:
         self._clause_generator = reductions.ClauseGenerator(self._apta, self._ig, self._vpool, self._assumptions_mode,
                                                             self._sb_strategy)
 
-    def _try_to_synthesize_dfa(self, formula: FORMULA, size: int, lower_bound: int = 1) -> Optional[DFA]:
-        STATISTICS.start_feeding_timer()
-        self._solver.append_formula(formula)
-        STATISTICS.stop_feeding_timer()
-
+    def _try_to_synthesize_dfa(self, size: int, lower_bound: int = 1) -> Optional[DFA]:
         assumptions = self._build_assumptions(size, lower_bound)
         log_info('Vars in CNF: {0}'.format(self._solver.nof_vars()))
         log_info('Clauses in CNF: {0}'.format(self._solver.nof_clauses()))
@@ -93,13 +88,13 @@ class LSUS:
 
             STATISTICS.start_formula_timer()
             if self._assumptions_mode != 'none' and size > lower_bound:
-                formula = self._clause_generator.generate_with_new_size(size - 1, size)
+                self._clause_generator.generate_with_new_size(self._solver, size - 1, size)
             else:
-                formula = self._clause_generator.generate(size)
+                self._clause_generator.generate(self._solver, size)
             STATISTICS.stop_formula_timer()
 
             while True:
-                dfa = self._try_to_synthesize_dfa(formula, size, lower_bound)
+                dfa = self._try_to_synthesize_dfa(size, lower_bound)
                 if dfa:
                     counter_examples = self._examples_provider.get_counter_examples(dfa)
                     if counter_examples:
@@ -111,9 +106,9 @@ class LSUS:
                         STATISTICS.stop_apta_building_timer()
 
                         STATISTICS.start_formula_timer()
-                        formula = self._clause_generator.generate_with_new_counterexamples(size,
-                                                                                           new_nodes_from,
-                                                                                           changed_statuses)
+                        self._clause_generator.generate_with_new_counterexamples(self._solver, size,
+                                                                                 new_nodes_from,
+                                                                                 changed_statuses)
                         STATISTICS.stop_formula_timer()
                         continue
                 break

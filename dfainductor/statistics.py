@@ -18,10 +18,6 @@ class STATISTICS:
     FORMULA_SUM = 0
     FORMULA_CUR = 0
 
-    FEEDING_NAME = 'Solver feeding'
-    FEEDING_SUM = 0
-    FEEDING_CUR = 0
-
     SOLVING_NAME = 'SAT solving'
     SOLVING_SUM = 0
     SOLVING_CUR = 0
@@ -59,7 +55,6 @@ class STATISTICS:
         log_statistics(cls.APTA_NAME, cls.APTA_SUM)
         log_statistics(cls.IG_NAME, cls.IG_SUM)
         log_statistics(cls.FORMULA_NAME, cls.FORMULA_SUM)
-        log_statistics(cls.FEEDING_NAME, cls.FEEDING_SUM)
         log_statistics(cls.SOLVING_NAME, cls.SOLVING_SUM)
         log_statistics(cls.WHOLE_NAME, cls.WHOLE_SUM)
         for name, list_of_times in cls.times_sum.items():
@@ -115,23 +110,6 @@ class STATISTICS:
         log_time(cls.FORMULA_NAME + 'time', total_time)
         cls.FORMULA_SUM += total_time
         cls.FORMULA_CUR = 0
-        return total_time
-
-    @classmethod
-    def start_feeding_timer(cls) -> None:
-        if cls.FEEDING_CUR != 0:
-            raise TimerWasNotStoppedBeforeNewStart(cls.FEEDING_NAME)
-        cls.FEEDING_CUR = timer()
-
-    @classmethod
-    def stop_feeding_timer(cls) -> float:
-        end_time = timer()
-        total_time = end_time - cls.FEEDING_CUR
-        if cls.FEEDING_CUR == 0:
-            raise TimerWasNotStartedBeforeStopped(cls.FEEDING_NAME)
-        log_time(cls.FEEDING_NAME + 'time', total_time)
-        cls.FEEDING_SUM += total_time
-        cls.FEEDING_CUR = 0
         return total_time
 
     @classmethod

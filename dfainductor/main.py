@@ -7,7 +7,7 @@ from .__version__ import __version__
 from .algorithms.searchers import LSUS
 from .logging import *
 from .statistics import STATISTICS
-from .structures import APTA, InconsistencyGraph as IG
+from .structures import APTA, InconsistencyGraph
 
 
 @click.command(context_settings=dict(
@@ -61,7 +61,7 @@ def cli(input_: str,
         STATISTICS.stop_apta_building_timer()
 
         STATISTICS.start_ig_building_timer()
-        ig = IG(apta)
+        ig = InconsistencyGraph(apta)
         log_success('Successfully built an IG')
         STATISTICS.stop_ig_building_timer()
 
