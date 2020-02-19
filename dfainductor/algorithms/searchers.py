@@ -67,12 +67,12 @@ class LSUS:
         elif self._assumptions_mode == 'switch':
             for v in range(self._apta.size):
                 for size in range(lower_bound, cur_size):
-                    assumptions.append(self._vpool.id('sw_x_{0}_{1}_0'.format(size, v)))
+                    self._solver.add_clause((self._vpool.id('sw_x_{0}_{1}_0'.format(size, v)),))
                 assumptions.append(-self._vpool.id('sw_x_{0}_{1}_0'.format(cur_size, v)))
             for from_ in range(cur_size):
                 for l_id in range(self._apta.alphabet_size):
                     for size in range(lower_bound, cur_size):
-                        assumptions.append(self._vpool.id('sw_y_{0}_{1}_{2}'.format(size, from_, l_id)))
+                        self._solver.add_clause((self._vpool.id('sw_y_{0}_{1}_{2}'.format(size, from_, l_id)),))
                     assumptions.append(-self._vpool.id('sw_y_{0}_{1}_{2}'.format(cur_size, from_, l_id)))
         return assumptions
 
