@@ -367,11 +367,11 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
         pass
 
     def generate_with_new_size(self, solver: Solver, old_size: int, new_size: int) -> None:
-        self._define_t_variables(solver, new_size, old_size=old_size)
-        self._define_p_variables(solver, new_size, old_size=old_size)
-        self._state_has_at_least_one_parent(solver, new_size, old_size=old_size)
-        self._preserve_parent_order_on_children(solver, new_size, old_size=old_size)
-        self._order_children(solver, new_size, old_size=old_size)
+        self._define_t_variables(solver, new_size, old_size)
+        self._define_p_variables(solver, new_size, old_size)
+        self._state_has_at_least_one_parent(solver, new_size, old_size)
+        self._preserve_parent_order_on_children(solver, new_size, old_size)
+        self._order_children(solver, new_size, old_size)
 
     def _define_t_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for to in range(old_size, size):
@@ -459,7 +459,6 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
                         )
 
 
-# TODO: fix. It doesn't support assumptions
 class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerator):
 
     def generate(self, solver: Solver, size: int) -> None:
@@ -477,10 +476,17 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
         pass
 
     def generate_with_new_size(self, solver: Solver, old_size: int, new_size: int) -> None:
-        super().generate_with_new_size(solver, old_size, new_size)
+        self._define_t_variables(solver, new_size, old_size)
+        self._define_nt_variables(solver, new_size, old_size)
+        self._define_p_variables_using_nt(solver, new_size, old_size)
+        self._state_has_at_least_one_parent(solver, new_size, old_size)
+        self._state_has_at_most_one_parent(solver, new_size, old_size)
+        self._define_eq_variables(solver, new_size, old_size)
+        self._order_parents_using_ng_variables(solver, new_size, old_size)
+        self._order_children(solver, new_size, old_size)
 
-    def _define_nt_variables(self, solver: Solver, size: int) -> None:
-        for child in range(2, size):
+    def _define_nt_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(max(old_size, 2), size):
             solver.append_formula(
                 _iff_to_clauses(self._var('nt', 0, child), -self._var('t', 0, child))
             )
@@ -492,8 +498,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     )
                 )
 
-    def _define_p_variables_using_nt(self, solver: Solver, size: int) -> None:
-        for child in range(1, size):
+    def _define_p_variables_using_nt(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(max(1, old_size), size):
             solver.append_formula(
                 _iff_to_clauses(self._var('p', child, 0), self._var('t', 0, child))
             )
@@ -505,14 +511,14 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     )
                 )
 
-    def _state_has_at_most_one_parent(self, solver: Solver, size: int) -> None:
-        for child in range(1, size):
+    def _state_has_at_most_one_parent(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(old_size, size):
             for parent in range(child):
                 for other_parent in range(parent):
                     solver.add_clause((-self._var('p', child, parent), -self._var('p', child, other_parent)))
 
-    def _define_eq_variables(self, solver: Solver, size: int) -> None:
-        for child in range(1, size - 1):
+    def _define_eq_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(max(1, old_size - 1), size - 1):
             for parent in range(child):
                 solver.add_clause(
                     (
@@ -543,8 +549,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     )
                 )
 
-    def _order_parents_using_ng_variables(self, solver: Solver, size: int) -> None:
-        for child in range(1, size - 1):
+    def _order_parents_using_ng_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(max(1, old_size - 1), size - 1):
             solver.add_clause((self._var('ng', child, child),))
             solver.add_clause((self._var('ng', child, 0),))
             for parent in range(child):
@@ -593,15 +599,15 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
 
     def _order_children(self, solver: Solver, size: int, old_size: int = 0) -> None:
         if self._alphabet_size == 2:
-            self._order_children_with_binary_alphabet(solver, size)
+            self._order_children_with_binary_alphabet(solver, size, old_size)
         elif self._alphabet_size > 2:
-            self._define_ny_variables(solver, size)
-            self._define_m_variables_with_ny(solver, size)
-            self._define_zm_variables(solver, size)
-            self._order_children_using_zm(solver, size)
+            self._define_ny_variables(solver, size, old_size)
+            self._define_m_variables_with_ny(solver, size, old_size)
+            self._define_zm_variables(solver, size, old_size)
+            self._order_children_using_zm(solver, size, old_size)
 
-    def _define_ny_variables(self, solver: Solver, size: int) -> None:
-        for child in range(size):
+    def _define_ny_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(old_size, size):
             for parent in range(child):
                 solver.append_formula(
                     _iff_to_clauses(
@@ -617,8 +623,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                         )
                     )
 
-    def _define_m_variables_with_ny(self, solver: Solver, size: int) -> None:
-        for child in range(size):
+    def _define_m_variables_with_ny(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(old_size, size):
             for parent in range(child):
                 solver.append_formula(
                     _iff_to_clauses(
@@ -634,8 +640,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                         )
                     )
 
-    def _define_zm_variables(self, solver: Solver, size: int) -> None:
-        for child in range(size):
+    def _define_zm_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(old_size, size):
             for parent in range(child):
                 solver.append_formula(
                     _iff_to_clauses(
@@ -651,8 +657,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                         )
                     )
 
-    def _order_children_using_zm(self, solver: Solver, size: int) -> None:
-        for child in range(size - 1):
+    def _order_children_using_zm(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(max(0, old_size - 1), size - 1):
             for parent in range(child):
                 for l_num in range(1, self._alphabet_size):
                     solver.append_formula(
