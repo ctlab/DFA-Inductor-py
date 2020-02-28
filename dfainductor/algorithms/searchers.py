@@ -33,7 +33,7 @@ class LSUS:
                                                             self._sb_strategy)
 
     def _try_to_synthesize_dfa(self, size: int, lower_bound: int = 1) -> Optional[DFA]:
-        assumptions = self._build_assumptions(size, lower_bound)
+        assumptions = self._build_assumptions(size, max(lower_bound, size - 1))
         log_info('Vars in CNF: {0}'.format(self._solver.nof_vars()))
         log_info('Clauses in CNF: {0}'.format(self._solver.nof_clauses()))
 
@@ -46,34 +46,35 @@ class LSUS:
             dfa = DFA()
             for i in range(size):
                 dfa.add_state(
-                    DFA.State.StateStatus.from_bool(assignment[self._vpool.id(f'z_{i}_0_0') - 1] > 0))
+                    DFA.State.StateStatus.from_bool(assignment[self._clause_generator.var('z', i) - 1] > 0)
+                )
             for i in range(size):
-                for label in self._apta.alphabet:
+                for label in range(self._apta.alphabet_size):
                     for j in range(size):
-                        if assignment[self._vpool.id(f'y_{i}_{label}_{j}') - 1] > 0:
-                            dfa.add_transition(i, label, j)
+                        if assignment[self._clause_generator.var('y', i, label, j) - 1] > 0:
+                            dfa.add_transition(i, self._apta.alphabet[label], j)
             return dfa
         else:
             return None
 
-    def _build_assumptions(self, cur_size: int, lower_bound: int = 1) -> List[int]:
+    def _build_assumptions(self, cur_size: int, prev_size: int = 1) -> List[int]:
         assumptions = []
         if self._assumptions_mode == 'chain':
             for v in range(self._apta.size):
-                assumptions.append(self._vpool.id('alo_x_{0}_{1}_0'.format(cur_size, v)))
+                assumptions.append(self._clause_generator.var('alo_x', cur_size, v))
             for from_ in range(cur_size):
                 for l_id in range(self._apta.alphabet_size):
-                    assumptions.append(self._vpool.id('alo_y_{0}_{1}_{2}'.format(cur_size, from_, l_id)))
+                    assumptions.append(self._clause_generator.var('alo_y', cur_size, from_, l_id))
         elif self._assumptions_mode == 'switch':
             for v in range(self._apta.size):
-                for size in range(lower_bound, cur_size):
-                    self._solver.add_clause((self._vpool.id('sw_x_{0}_{1}_0'.format(size, v)),))
-                assumptions.append(-self._vpool.id('sw_x_{0}_{1}_0'.format(cur_size, v)))
+                for size in range(prev_size, cur_size):
+                    self._solver.propagate((self._clause_generator.var('sw_x', size, v),))
+                assumptions.append(-self._clause_generator.var('sw_x', cur_size, v))
             for from_ in range(cur_size):
                 for l_id in range(self._apta.alphabet_size):
-                    for size in range(lower_bound, cur_size):
-                        self._solver.add_clause((self._vpool.id('sw_y_{0}_{1}_{2}'.format(size, from_, l_id)),))
-                    assumptions.append(-self._vpool.id('sw_y_{0}_{1}_{2}'.format(cur_size, from_, l_id)))
+                    for size in range(prev_size, cur_size):
+                        self._solver.propagate((self._clause_generator.var('sw_y', size, from_, l_id),))
+                    assumptions.append(-self._clause_generator.var('sw_y', cur_size, from_, l_id))
         return assumptions
 
     def search(self, lower_bound: int, upper_bound: int) -> Optional[DFA]:

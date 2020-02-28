@@ -82,7 +82,7 @@ class BaseClausesGenerator(ABC):
     def generate_with_new_size(self, solver: Solver, old_size: int, new_size: int) -> None:
         pass
 
-    def _var(self, name: str, ind1, ind2=0, ind3=0) -> int:
+    def var(self, name: str, ind1, ind2=0, ind3=0) -> int:
         var = f'{name}_{ind1}_{ind2}_{ind3}'
         result = self._vpool.id(var)
         return result
@@ -147,7 +147,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         self._mapped_node_and_transition_force_mapping(solver, new_size, old_size=old_size)
 
     def _fix_start_state(self, solver: Solver) -> None:
-        solver.add_clause((self._var('x', 0, 0),))
+        solver.add_clause((self.var('x', 0, 0),))
 
     def _one_node_maps_to_alo_state(self,
                                     solver: Solver,
@@ -165,7 +165,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
 
     def _one_node_maps_to_alo_state_classic(self, solver: Solver, size: int, new_node_from: int = 0) -> None:
         for i in range(new_node_from, self._apta.size):
-            solver.add_clause(tuple(self._var('x', i, j) for j in range(size)))
+            solver.add_clause(tuple(self.var('x', i, j) for j in range(size)))
 
     def _one_node_maps_to_alo_state_chain(self,
                                           solver: Solver,
@@ -175,13 +175,13 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         if old_size == 0:
             for i in range(new_node_from, self._apta.size):
                 solver.add_clause(
-                    tuple(self._var('x', i, j) for j in range(old_size, size)) + (-self._var('alo_x', size, i),)
+                    tuple(self.var('x', i, j) for j in range(old_size, size)) + (-self.var('alo_x', size, i),)
                 )
         else:
             for i in range(new_node_from, self._apta.size):
                 solver.add_clause(
-                    tuple(self._var('x', i, j) for j in range(old_size, size)) +
-                    (-self._var('alo_x', size, i), self._var('alo_x', old_size, i))
+                    tuple(self.var('x', i, j) for j in range(old_size, size)) +
+                    (-self.var('alo_x', size, i), self.var('alo_x', old_size, i))
                 )
 
     def _one_node_maps_to_alo_state_switch(self, solver: Solver, size: int, new_node_from: int = 0) -> None:
@@ -189,7 +189,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
             # solver.add_clause(
             #     tuple(self._var('x', i, j) for j in range(size)) + (self._var('sw_x', size, i),)
             # )
-            clause = tuple(self._var('x', i, j) for j in range(size)) + (self._var('sw_x', size, i),)
+            clause = tuple(self.var('x', i, j) for j in range(size)) + (self.var('sw_x', size, i),)
             solver.add_clause(
                 clause
             )
@@ -200,7 +200,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
             for i in range(old_size, size):
                 for j in range(0, i):
                     solver.add_clause(
-                        (-self._var('x', v, i), -self._var('x', v, j))
+                        (-self.var('x', v, i), -self.var('x', v, j))
                     )
 
     def _dfa_is_complete(self, solver: Solver, size: int, old_size: int = 0):
@@ -215,7 +215,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         for i in range(size):
             for l_id in range(self._alphabet_size):
                 solver.add_clause(
-                    tuple(self._var('y', i, l_id, j) for j in range(size))
+                    tuple(self.var('y', i, l_id, j) for j in range(size))
                 )
 
     def _dfa_is_complete_chain(self, solver: Solver, size: int, old_size: int = 0) -> None:
@@ -223,21 +223,21 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
             for l_id in range(self._alphabet_size):
                 for i in range(old_size):
                     solver.add_clause(
-                        tuple(self._var('y', i, l_id, j) for j in range(old_size, size)) +
-                        (-self._var('alo_y', size, i, l_id),)
+                        tuple(self.var('y', i, l_id, j) for j in range(old_size, size)) +
+                        (-self.var('alo_y', size, i, l_id),)
                     )
         else:
             for l_id in range(self._alphabet_size):
                 for i in range(old_size):
                     solver.add_clause(
-                        tuple(self._var('y', i, l_id, j) for j in range(old_size, size)) +
-                        (-self._var('alo_y', size, i, l_id), self._var('alo_y', old_size, i, l_id))
+                        tuple(self.var('y', i, l_id, j) for j in range(old_size, size)) +
+                        (-self.var('alo_y', size, i, l_id), self.var('alo_y', old_size, i, l_id))
                     )
         for l_id in range(self._alphabet_size):
             for i in range(old_size, size):
                 solver.add_clause(
-                    tuple(self._var('y', i, l_id, j) for j in range(size)) +
-                    (-self._var('alo_y', size, i, l_id),)
+                    tuple(self.var('y', i, l_id, j) for j in range(size)) +
+                    (-self.var('alo_y', size, i, l_id),)
                 )
 
     def _dfa_is_complete_switch(self, solver: Solver, size: int) -> None:
@@ -246,7 +246,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                 # solver.add_clause(
                 #     tuple(self._var('y', i, l_id, j) for j in range(size)) + (self._var('sw_y', size, i, l_id),)
                 # )
-                clause = tuple(self._var('y', i, l_id, j) for j in range(size)) + (self._var('sw_y', size, i, l_id),)
+                clause = tuple(self.var('y', i, l_id, j) for j in range(size)) + (self.var('sw_y', size, i, l_id),)
                 solver.add_clause(
                     clause
                 )
@@ -257,13 +257,13 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                 for j in range(old_size, size):
                     for k in range(j):
                         solver.add_clause(
-                            (-self._var('y', i, l_id, j), -self._var('y', i, l_id, k))
+                            (-self.var('y', i, l_id, j), -self.var('y', i, l_id, k))
                         )
             for i in range(old_size, size):
                 for j in range(size):
                     for k in range(j):
                         solver.add_clause(
-                            (-self._var('y', i, l_id, j), -self._var('y', i, l_id, k))
+                            (-self.var('y', i, l_id, j), -self.var('y', i, l_id, k))
                         )
 
     def _state_status_compatible_with_node_status(self,
@@ -277,10 +277,10 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         for i in chain(range(new_node_from, self._apta.size), changed_statuses):
             if self._apta.get_node(i).is_accepting():
                 for j in range(old_size, size):
-                    solver.append_formula(_implication_to_clauses(self._var('x', i, j), self._var('z', j)))
+                    solver.append_formula(_implication_to_clauses(self.var('x', i, j), self.var('z', j)))
             elif self._apta.get_node(i).is_rejecting():
                 for j in range(old_size, size):
-                    solver.append_formula(_implication_to_clauses(self._var('x', i, j), -self._var('z', j)))
+                    solver.append_formula(_implication_to_clauses(self.var('x', i, j), -self.var('z', j)))
 
     def _mapped_adjacent_nodes_force_transition(self, solver: Solver, size: int, new_node_from: int = 0,
                                                 old_size: int = 0) -> None:
@@ -291,8 +291,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                         for to in range(old_size, size):
                             solver.append_formula(
                                 _conjunction_implies_to_clauses(
-                                    (self._var('x', parent.id_, from_), self._var('x', child.id_, to),),
-                                    self._var('y', from_, label, to)
+                                    (self.var('x', parent.id_, from_), self.var('x', child.id_, to),),
+                                    self.var('y', from_, label, to)
                                 )
                             )
                     if old_size > 0:
@@ -300,8 +300,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                             for to in range(old_size, size):
                                 solver.append_formula(
                                     _conjunction_implies_to_clauses(
-                                        (self._var('x', parent.id_, from_), self._var('x', child.id_, to),),
-                                        self._var('y', from_, label, to)
+                                        (self.var('x', parent.id_, from_), self.var('x', child.id_, to),),
+                                        self.var('y', from_, label, to)
                                     )
                                 )
 
@@ -309,8 +309,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                             for to in range(old_size):
                                 solver.append_formula(
                                     _conjunction_implies_to_clauses(
-                                        (self._var('x', parent.id_, from_), self._var('x', child.id_, to),),
-                                        self._var('y', from_, label, to)
+                                        (self.var('x', parent.id_, from_), self.var('x', child.id_, to),),
+                                        self.var('y', from_, label, to)
                                     )
                                 )
 
@@ -323,8 +323,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                         for to in range(old_size, size):
                             solver.append_formula(
                                 _conjunction_implies_to_clauses(
-                                    (self._var('x', parent.id_, from_), self._var('y', from_, label, to),),
-                                    self._var('x', child.id_, to)
+                                    (self.var('x', parent.id_, from_), self.var('y', from_, label, to),),
+                                    self.var('x', child.id_, to)
                                 )
                             )
                     if old_size > 0:
@@ -332,16 +332,16 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                             for to in range(old_size, size):
                                 solver.append_formula(
                                     _conjunction_implies_to_clauses(
-                                        (self._var('x', parent.id_, from_), self._var('y', from_, label, to),),
-                                        self._var('x', child.id_, to)
+                                        (self.var('x', parent.id_, from_), self.var('y', from_, label, to),),
+                                        self.var('x', child.id_, to)
                                     )
                                 )
                         for from_ in range(old_size, size):
                             for to in range(old_size):
                                 solver.append_formula(
                                     _conjunction_implies_to_clauses(
-                                        (self._var('x', parent.id_, from_), self._var('y', from_, label, to),),
-                                        self._var('x', child.id_, to)
+                                        (self.var('x', parent.id_, from_), self.var('y', from_, label, to),),
+                                        self.var('x', child.id_, to)
                                     )
                                 )
 
@@ -351,7 +351,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
             for node2 in self._ig.edges[node1]:
                 if node1 >= new_node_from or node2 >= new_node_from:
                     for s in range(old_size, size):
-                        solver.add_clause((-self._var('x', node1, s), -self._var('x', node2, s)))
+                        solver.add_clause((-self.var('x', node1, s), -self.var('x', node2, s)))
 
 
 class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
@@ -378,8 +378,8 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
             for from_ in range(to):
                 solver.append_formula(
                     _iff_disjunction_to_clauses(
-                        self._var('t', from_, to),
-                        tuple(self._var('y', from_, l_id, to) for l_id in range(self._alphabet_size))
+                        self.var('t', from_, to),
+                        tuple(self.var('y', from_, l_id, to) for l_id in range(self._alphabet_size))
                     )
                 )
 
@@ -388,14 +388,14 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
             for parent in range(child):
                 solver.append_formula(
                     _iff_conjunction_to_clauses(
-                        self._var('p', child, parent),
-                        tuple(-self._var('t', prev, child) for prev in range(parent)) + (self._var('t', parent, child),)
+                        self.var('p', child, parent),
+                        tuple(-self.var('t', prev, child) for prev in range(parent)) + (self.var('t', parent, child),)
                     )
                 )
 
     def _state_has_at_least_one_parent(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for child in range(max(1, old_size), size):
-            solver.add_clause(tuple(self._var('p', child, parent) for parent in range(child)))
+            solver.add_clause(tuple(self.var('p', child, parent) for parent in range(child)))
 
     def _preserve_parent_order_on_children(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for child in range(max(2, old_size - 1), size - 1):
@@ -403,7 +403,7 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
                 for pre_parent in range(parent):
                     solver.append_formula(
                         _implication_to_clauses(
-                            self._var('p', child, parent), -self._var('p', child + 1, pre_parent)
+                            self.var('p', child, parent), -self.var('p', child + 1, pre_parent)
                         )
                     )
 
@@ -419,14 +419,14 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
             for parent in range(child):
                 solver.append_formula(
                     _conjunction_implies_to_clauses(
-                        (self._var('p', child, parent), self._var('p', child + 1, parent)),
-                        self._var('y', parent, 0, child)
+                        (self.var('p', child, parent), self.var('p', child + 1, parent)),
+                        self.var('y', parent, 0, child)
                     )
                 )
                 solver.append_formula(
                     _conjunction_implies_to_clauses(
-                        (self._var('p', child, parent), self._var('p', child + 1, parent)),
-                        self._var('y', parent, 1, child + 1)
+                        (self.var('p', child, parent), self.var('p', child + 1, parent)),
+                        self.var('y', parent, 1, child + 1)
                     )
                 )
 
@@ -436,9 +436,9 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
                 for l_num in range(self._alphabet_size):
                     solver.append_formula(
                         _iff_conjunction_to_clauses(
-                            self._var('m', parent, l_num, child),
-                            tuple(-self._var('y', parent, l_less, child) for l_less in range(l_num)) +
-                            (self._var('y', parent, l_num, child),)
+                            self.var('m', parent, l_num, child),
+                            tuple(-self.var('y', parent, l_less, child) for l_less in range(l_num)) +
+                            (self.var('y', parent, l_num, child),)
                         )
                     )
 
@@ -450,11 +450,11 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
                         solver.append_formula(
                             _conjunction_implies_to_clauses(
                                 (
-                                    self._var('p', child, parent),
-                                    self._var('p', child + 1, parent),
-                                    self._var('m', parent, l_num, child),
+                                    self.var('p', child, parent),
+                                    self.var('p', child + 1, parent),
+                                    self.var('m', parent, l_num, child),
                                 ),
-                                -self._var('m', parent, l_less, child + 1)
+                                -self.var('m', parent, l_less, child + 1)
                             )
                         )
 
@@ -488,26 +488,26 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
     def _define_nt_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for child in range(max(old_size, 2), size):
             solver.append_formula(
-                _iff_to_clauses(self._var('nt', 0, child), -self._var('t', 0, child))
+                _iff_to_clauses(self.var('nt', 0, child), -self.var('t', 0, child))
             )
             for parent in range(1, child):
                 solver.append_formula(
                     _iff_conjunction_to_clauses(
-                        self._var('nt', parent, child),
-                        (self._var('nt', parent - 1, child), -self._var('t', parent, child))
+                        self.var('nt', parent, child),
+                        (self.var('nt', parent - 1, child), -self.var('t', parent, child))
                     )
                 )
 
     def _define_p_variables_using_nt(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for child in range(max(1, old_size), size):
             solver.append_formula(
-                _iff_to_clauses(self._var('p', child, 0), self._var('t', 0, child))
+                _iff_to_clauses(self.var('p', child, 0), self.var('t', 0, child))
             )
             for parent in range(1, child):
                 solver.append_formula(
                     _iff_conjunction_to_clauses(
-                        self._var('p', child, parent),
-                        (self._var('t', parent, child), self._var('nt', parent - 1, child))
+                        self.var('p', child, parent),
+                        (self.var('t', parent, child), self.var('nt', parent - 1, child))
                     )
                 )
 
@@ -515,85 +515,85 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
         for child in range(old_size, size):
             for parent in range(child):
                 for other_parent in range(parent):
-                    solver.add_clause((-self._var('p', child, parent), -self._var('p', child, other_parent)))
+                    solver.add_clause((-self.var('p', child, parent), -self.var('p', child, other_parent)))
 
     def _define_eq_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for child in range(max(1, old_size - 1), size - 1):
             for parent in range(child):
                 solver.add_clause(
                     (
-                        self._var('eq', child, parent),
-                        self._var('p', child, parent),
-                        self._var('p', child + 1, parent)
+                        self.var('eq', child, parent),
+                        self.var('p', child, parent),
+                        self.var('p', child + 1, parent)
                     )
                 )
                 solver.add_clause(
                     (
-                        self._var('eq', child, parent),
-                        -self._var('p', child, parent),
-                        -self._var('p', child + 1, parent)
+                        self.var('eq', child, parent),
+                        -self.var('p', child, parent),
+                        -self.var('p', child + 1, parent)
                     )
                 )
                 solver.add_clause(
                     (
-                        -self._var('eq', child, parent),
-                        -self._var('p', child, parent),
-                        self._var('p', child + 1, parent)
+                        -self.var('eq', child, parent),
+                        -self.var('p', child, parent),
+                        self.var('p', child + 1, parent)
                     )
                 )
                 solver.add_clause(
                     (
-                        -self._var('eq', child, parent),
-                        self._var('p', child, parent),
-                        -self._var('p', child + 1, parent)
+                        -self.var('eq', child, parent),
+                        self.var('p', child, parent),
+                        -self.var('p', child + 1, parent)
                     )
                 )
 
     def _order_parents_using_ng_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for child in range(max(1, old_size - 1), size - 1):
-            solver.add_clause((self._var('ng', child, child),))
-            solver.add_clause((self._var('ng', child, 0),))
+            solver.add_clause((self.var('ng', child, child),))
+            solver.add_clause((self.var('ng', child, 0),))
             for parent in range(child):
                 solver.add_clause(
                     (
-                        -self._var('ng', child, parent),
-                        self._var('ng', child, parent + 1),
-                        self._var('p', child, parent)
+                        -self.var('ng', child, parent),
+                        self.var('ng', child, parent + 1),
+                        self.var('p', child, parent)
                     )
                 )
                 solver.add_clause(
                     (
-                        -self._var('ng', child, parent),
-                        self._var('eq', child, parent),
-                        self._var('p', child, parent)
+                        -self.var('ng', child, parent),
+                        self.var('eq', child, parent),
+                        self.var('p', child, parent)
                     )
                 )
                 solver.add_clause(
                     (
-                        -self._var('ng', child, parent),
-                        self._var('ng', child, parent + 1),
-                        -self._var('p', child + 1, parent)
+                        -self.var('ng', child, parent),
+                        self.var('ng', child, parent + 1),
+                        -self.var('p', child + 1, parent)
                     )
                 )
                 solver.add_clause(
                     (
-                        -self._var('ng', child, parent),
-                        self._var('eq', child, parent),
-                        -self._var('p', child + 1, parent)
+                        -self.var('ng', child, parent),
+                        self.var('eq', child, parent),
+                        -self.var('p', child + 1, parent)
                     )
                 )
                 solver.add_clause(
                     (
-                        self._var('ng', child, parent),
-                        -self._var('ng', child, parent + 1),
-                        -self._var('eq', child, parent)
+                        self.var('ng', child, parent),
+                        -self.var('ng', child, parent + 1),
+                        -self.var('eq', child, parent)
                     )
                 )
                 solver.add_clause(
                     (
-                        self._var('ng', child, parent),
-                        -self._var('p', child, parent),
-                        self._var('p', child + 1, parent)
+                        self.var('ng', child, parent),
+                        -self.var('p', child, parent),
+                        self.var('p', child + 1, parent)
                     )
                 )
 
@@ -611,15 +611,15 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
             for parent in range(child):
                 solver.append_formula(
                     _iff_to_clauses(
-                        self._var('ny', parent, 0, child),
-                        -self._var('y', parent, 0, child),
+                        self.var('ny', parent, 0, child),
+                        -self.var('y', parent, 0, child),
                     )
                 )
                 for l_num in range(1, self._alphabet_size):
                     solver.append_formula(
                         _iff_conjunction_to_clauses(
-                            self._var('ny', parent, l_num, child),
-                            (-self._var('y', parent, l_num, child), self._var('ny', parent, l_num - 1, child))
+                            self.var('ny', parent, l_num, child),
+                            (-self.var('y', parent, l_num, child), self.var('ny', parent, l_num - 1, child))
                         )
                     )
 
@@ -628,15 +628,15 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
             for parent in range(child):
                 solver.append_formula(
                     _iff_to_clauses(
-                        self._var('m', parent, 0, child),
-                        self._var('y', parent, 0, child),
+                        self.var('m', parent, 0, child),
+                        self.var('y', parent, 0, child),
                     )
                 )
                 for l_num in range(1, self._alphabet_size):
                     solver.append_formula(
                         _iff_conjunction_to_clauses(
-                            self._var('m', parent, l_num, child),
-                            (self._var('y', parent, l_num, child), self._var('ny', parent, l_num - 1, child))
+                            self.var('m', parent, l_num, child),
+                            (self.var('y', parent, l_num, child), self.var('ny', parent, l_num - 1, child))
                         )
                     )
 
@@ -645,15 +645,15 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
             for parent in range(child):
                 solver.append_formula(
                     _iff_to_clauses(
-                        self._var('zm', parent, 0, child),
-                        -self._var('m', parent, 0, child),
+                        self.var('zm', parent, 0, child),
+                        -self.var('m', parent, 0, child),
                     )
                 )
                 for l_num in range(1, self._alphabet_size):
                     solver.append_formula(
                         _iff_conjunction_to_clauses(
-                            self._var('zm', parent, l_num, child),
-                            (self._var('zm', parent, l_num - 1, child), -self._var('m', parent, l_num, child))
+                            self.var('zm', parent, l_num, child),
+                            (self.var('zm', parent, l_num - 1, child), -self.var('m', parent, l_num, child))
                         )
                     )
 
@@ -664,11 +664,11 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     solver.append_formula(
                         _conjunction_implies_to_clauses(
                             (
-                                self._var('p', child, parent),
-                                self._var('p', child + 1, parent),
-                                self._var('m', parent, l_num, child)
+                                self.var('p', child, parent),
+                                self.var('p', child + 1, parent),
+                                self.var('m', parent, l_num, child)
                             ),
-                            self._var('zm', parent, l_num - 1, child + 1)
+                            self.var('zm', parent, l_num - 1, child + 1)
                         )
                     )
 
