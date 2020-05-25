@@ -106,6 +106,10 @@ class LSUS:
                         (new_nodes_from, changed_statuses) = self._apta.add_examples(counter_examples)
                         STATISTICS.stop_apta_building_timer()
 
+                        STATISTICS.start_ig_building_timer()
+                        self._ig.update(new_nodes_from)
+                        STATISTICS.stop_ig_building_timer()
+
                         STATISTICS.start_formula_timer()
                         self._clause_generator.generate_with_new_counterexamples(self._solver, size,
                                                                                  new_nodes_from,

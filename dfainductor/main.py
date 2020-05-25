@@ -38,6 +38,8 @@ from .structures import APTA, InconsistencyGraph
               default='none', show_default=True, help='assumptions mode')
 @click.option('-stat', '--statistics', 'print_statistics', is_flag=True, default=False, show_default=True,
               help='prints time statistics summary in the end')
+@click.option('-ig', '--inconsistency-graph', 'use_ig', is_flag=True, default=False, show_default=True,
+              help='use inconsistency graph')
 @click.version_option(__version__, '-v', '--version')
 def cli(input_: str,
         lower_bound: int,
@@ -49,7 +51,8 @@ def cli(input_: str,
         initial_amount: int,
         step_amount: int,
         assumptions_mode: str,
-        print_statistics: bool) -> None:
+        print_statistics: bool,
+        use_ig: bool) -> None:
     try:
         STATISTICS.start_whole_timer()
         examples_provider = examples.get_examples_provider(input_, cegar_mode, initial_amount, step_amount)
@@ -60,10 +63,12 @@ def cli(input_: str,
         log_info('The APTA size: {0}'.format(apta.size))
         STATISTICS.stop_apta_building_timer()
 
-        STATISTICS.start_ig_building_timer()
-        ig = InconsistencyGraph(apta)
-        log_success('Successfully built an IG')
-        STATISTICS.stop_ig_building_timer()
+        if use_ig:
+            STATISTICS.start_ig_building_timer()
+        ig = InconsistencyGraph(apta, is_empty=not use_ig)
+        if use_ig:
+            log_success('Successfully built an IG')
+            STATISTICS.stop_ig_building_timer()
 
         searcher = LSUS(apta,
                         ig,

@@ -254,12 +254,19 @@ class DFA:
 
 
 class InconsistencyGraph:
-    def __init__(self, apta: APTA) -> None:
+    def __init__(self, apta: APTA, *, is_empty: bool = False) -> None:
         self._apta = apta
         self._size = apta.size
         self._edges: List[Set[int]] = [set() for _ in range(self.size)]
+        if not is_empty:
+            for node_id in range(apta.size):
+                for other_id in range(node_id):
+                    if not self._try_to_merge(self._apta.get_node(node_id), self._apta.get_node(other_id), {}):
+                        self._edges[node_id].add(other_id)
 
-        for node_id in range(apta.size):
+    def update(self, new_nodes_from: int):
+        for node_id in range(new_nodes_from, self._size):
+            self._edges.append(set())
             for other_id in range(node_id):
                 if not self._try_to_merge(self._apta.get_node(node_id), self._apta.get_node(other_id), {}):
                     self._edges[node_id].add(other_id)

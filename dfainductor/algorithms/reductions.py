@@ -136,6 +136,7 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                                                        changed_statuses=changed_statuses)
         self._mapped_adjacent_nodes_force_transition(solver, size, new_node_from=new_from)
         self._mapped_node_and_transition_force_mapping(solver, size, new_node_from=new_from)
+        self._inconsistency_graph_constraints(solver, size, new_node_from=new_from)
 
     def generate_with_new_size(self, solver: Solver, old_size: int, new_size: int) -> None:
         self._one_node_maps_to_alo_state(solver, new_size, old_size=old_size)
