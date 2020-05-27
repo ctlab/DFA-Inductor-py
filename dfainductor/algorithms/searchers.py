@@ -60,26 +60,6 @@ class LSUS:
         else:
             return None
 
-    def _build_assumptions(self, cur_size: int, prev_size: int = 1) -> List[int]:
-        assumptions = []
-        if self._assumptions_mode == 'chain':
-            for v in range(self._apta.size):
-                assumptions.append(self._var_pool.var('alo_x', cur_size, v))
-            for from_ in range(cur_size):
-                for l_id in range(self._apta.alphabet_size):
-                    assumptions.append(self._var_pool.var('alo_y', cur_size, from_, l_id))
-        elif self._assumptions_mode == 'switch':
-            for v in range(self._apta.size):
-                for size in range(prev_size, cur_size):
-                    self._solver.propagate((self._var_pool.var('sw_x', size, v),))
-                assumptions.append(-self._var_pool.var('sw_x', cur_size, v))
-            for from_ in range(cur_size):
-                for l_id in range(self._apta.alphabet_size):
-                    for size in range(prev_size, cur_size):
-                        self._solver.propagate((self._var_pool.var('sw_y', size, from_, l_id),))
-                    assumptions.append(-self._var_pool.var('sw_y', cur_size, from_, l_id))
-        return assumptions
-
     def search(self, lower_bound: int, upper_bound: int) -> Optional[DFA]:
         self._solver = Solver(self._solver_name)
         log_info('Solver has been started.')
@@ -96,7 +76,7 @@ class LSUS:
             else:
                 self._clause_generator.generate(self._solver, size)
             STATISTICS.stop_formula_timer()
-            assumptions = self._build_assumptions(size, max(size - 1, lower_bound))
+            assumptions = self._clause_generator.build_assumptions(size, self._solver)
             while True:
                 dfa = self._try_to_synthesize_dfa(size, assumptions)
                 if dfa:

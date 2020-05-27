@@ -4,8 +4,8 @@ from typing import List, Tuple, Iterator
 
 from pysat.solvers import Solver
 
-from ..variables import VarPool
 from ..structures import APTA, InconsistencyGraph
+from ..variables import VarPool
 
 CLAUSE = Tuple[int, ...]
 CLAUSES = Iterator[CLAUSE]
@@ -82,6 +82,22 @@ class BaseClausesGenerator(ABC):
     def generate_with_new_size(self, solver: Solver, old_size: int, new_size: int) -> None:
         pass
 
+    def build_assumptions(self, cur_size: int, solver: Solver) -> List[int]:
+        assumptions = []
+        if self._assumptions_mode == 'chain':
+            for v in range(self._apta.size):
+                assumptions.append(self._var_pool.var('alo_x', cur_size, v))
+            for from_ in range(cur_size):
+                for l_id in range(self._apta.alphabet_size):
+                    assumptions.append(self._var_pool.var('alo_y', cur_size, from_, l_id))
+        elif self._assumptions_mode == 'switch':
+            for v in range(self._apta.size):
+                assumptions.append(-self._var_pool.var('sw_x', cur_size, v))
+            for from_ in range(cur_size):
+                for l_id in range(self._apta.alphabet_size):
+                    assumptions.append(-self._var_pool.var('sw_y', cur_size, from_, l_id))
+        return assumptions
+
 
 class ClauseGenerator(BaseClausesGenerator):
 
@@ -151,13 +167,11 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                                     new_node_from: int = 0,
                                     old_size: int = 0) -> None:
         if self._assumptions_mode == 'none':
-            self._one_node_maps_to_alo_state_classic(solver, size, new_node_from=new_node_from)
+            self._one_node_maps_to_alo_state_classic(solver, size, new_node_from)
         elif self._assumptions_mode == 'chain':
-            self._one_node_maps_to_alo_state_chain(solver, size,
-                                                   new_node_from=new_node_from,
-                                                   old_size=old_size)
+            self._one_node_maps_to_alo_state_chain(solver, size, new_node_from, old_size)
         elif self._assumptions_mode == 'switch':
-            self._one_node_maps_to_alo_state_switch(solver, size, new_node_from=new_node_from)
+            self._one_node_maps_to_alo_state_switch(solver, size, new_node_from, old_size)
 
     def _one_node_maps_to_alo_state_classic(self, solver: Solver, size: int, new_node_from: int = 0) -> None:
         for i in range(new_node_from, self._apta.size):
@@ -171,7 +185,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         if old_size == 0:
             for i in range(new_node_from, self._apta.size):
                 solver.add_clause(
-                    tuple(self._var_pool.var('x', i, j) for j in range(old_size, size)) + (-self._var_pool.var('alo_x', size, i),)
+                    tuple(self._var_pool.var('x', i, j) for j in range(old_size, size)) + (
+                        -self._var_pool.var('alo_x', size, i),)
                 )
         else:
             for i in range(new_node_from, self._apta.size):
@@ -180,15 +195,18 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                     (-self._var_pool.var('alo_x', size, i), self._var_pool.var('alo_x', old_size, i))
                 )
 
-    def _one_node_maps_to_alo_state_switch(self, solver: Solver, size: int, new_node_from: int = 0) -> None:
+    def _one_node_maps_to_alo_state_switch(self,
+                                           solver: Solver,
+                                           size: int,
+                                           new_node_from: int = 0,
+                                           old_size: int = 0) -> None:
         for i in range(new_node_from, self._apta.size):
-            # solver.add_clause(
-            #     tuple(self._var('x', i, j) for j in range(size)) + (self._var('sw_x', size, i),)
-            # )
-            clause = tuple(self._var_pool.var('x', i, j) for j in range(size)) + (self._var_pool.var('sw_x', size, i),)
             solver.add_clause(
-                clause
+                tuple(self._var_pool.var('x', i, j) for j in range(size)) + (self._var_pool.var('sw_x', size, i),)
             )
+        if old_size > 0:
+            for v in range(self._apta.size):
+                solver.add_clause((self._var_pool.var('sw_x', old_size, v),))
 
     def _one_node_maps_to_at_most_one_state(self, solver: Solver, size: int, new_node_from: int = 0,
                                             old_size: int = 0) -> None:
@@ -203,9 +221,9 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         if self._assumptions_mode == 'none':
             self._dfa_is_complete_classic(solver, size)
         elif self._assumptions_mode == 'chain':
-            self._dfa_is_complete_chain(solver, size, old_size=old_size)
+            self._dfa_is_complete_chain(solver, size, old_size)
         elif self._assumptions_mode == 'switch':
-            self._dfa_is_complete_switch(solver, size)
+            self._dfa_is_complete_switch(solver, size, old_size)
 
     def _dfa_is_complete_classic(self, solver: Solver, size: int) -> None:
         for i in range(size):
@@ -236,16 +254,19 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                     (-self._var_pool.var('alo_y', size, i, l_id),)
                 )
 
-    def _dfa_is_complete_switch(self, solver: Solver, size: int) -> None:
+    def _dfa_is_complete_switch(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for i in range(size):
             for l_id in range(self._alphabet_size):
-                # solver.add_clause(
-                #     tuple(self._var('y', i, l_id, j) for j in range(size)) + (self._var('sw_y', size, i, l_id),)
-                # )
-                clause = tuple(self._var_pool.var('y', i, l_id, j) for j in range(size)) + (self._var_pool.var('sw_y', size, i, l_id),)
                 solver.add_clause(
-                    clause
+                    tuple(self._var_pool.var('y', i, l_id, j) for j in range(size)) + (
+                        self._var_pool.var('sw_y', size, i, l_id),
+                    )
                 )
+
+        if old_size > 0:
+            for from_ in range(old_size):
+                for l_id in range(self._alphabet_size):
+                    solver.add_clause((self._var_pool.var('sw_y', old_size, from_, l_id),))
 
     def _dfa_is_deterministic(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for l_id in range(self._alphabet_size):
@@ -273,10 +294,12 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
         for i in chain(range(new_node_from, self._apta.size), changed_statuses):
             if self._apta.get_node(i).is_accepting():
                 for j in range(old_size, size):
-                    solver.append_formula(_implication_to_clauses(self._var_pool.var('x', i, j), self._var_pool.var('z', j)))
+                    solver.append_formula(
+                        _implication_to_clauses(self._var_pool.var('x', i, j), self._var_pool.var('z', j)))
             elif self._apta.get_node(i).is_rejecting():
                 for j in range(old_size, size):
-                    solver.append_formula(_implication_to_clauses(self._var_pool.var('x', i, j), -self._var_pool.var('z', j)))
+                    solver.append_formula(
+                        _implication_to_clauses(self._var_pool.var('x', i, j), -self._var_pool.var('z', j)))
 
     def _mapped_adjacent_nodes_force_transition(self, solver: Solver, size: int, new_node_from: int = 0,
                                                 old_size: int = 0) -> None:
@@ -287,7 +310,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                         for to in range(old_size, size):
                             solver.append_formula(
                                 _conjunction_implies_to_clauses(
-                                    (self._var_pool.var('x', parent.id_, from_), self._var_pool.var('x', child.id_, to),),
+                                    (self._var_pool.var('x', parent.id_, from_),
+                                     self._var_pool.var('x', child.id_, to),),
                                     self._var_pool.var('y', from_, label, to)
                                 )
                             )
@@ -296,7 +320,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                             for to in range(old_size, size):
                                 solver.append_formula(
                                     _conjunction_implies_to_clauses(
-                                        (self._var_pool.var('x', parent.id_, from_), self._var_pool.var('x', child.id_, to),),
+                                        (self._var_pool.var('x', parent.id_, from_),
+                                         self._var_pool.var('x', child.id_, to),),
                                         self._var_pool.var('y', from_, label, to)
                                     )
                                 )
@@ -305,7 +330,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                             for to in range(old_size):
                                 solver.append_formula(
                                     _conjunction_implies_to_clauses(
-                                        (self._var_pool.var('x', parent.id_, from_), self._var_pool.var('x', child.id_, to),),
+                                        (self._var_pool.var('x', parent.id_, from_),
+                                         self._var_pool.var('x', child.id_, to),),
                                         self._var_pool.var('y', from_, label, to)
                                     )
                                 )
@@ -319,7 +345,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                         for to in range(old_size, size):
                             solver.append_formula(
                                 _conjunction_implies_to_clauses(
-                                    (self._var_pool.var('x', parent.id_, from_), self._var_pool.var('y', from_, label, to),),
+                                    (self._var_pool.var('x', parent.id_, from_),
+                                     self._var_pool.var('y', from_, label, to),),
                                     self._var_pool.var('x', child.id_, to)
                                 )
                             )
@@ -328,7 +355,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                             for to in range(old_size, size):
                                 solver.append_formula(
                                     _conjunction_implies_to_clauses(
-                                        (self._var_pool.var('x', parent.id_, from_), self._var_pool.var('y', from_, label, to),),
+                                        (self._var_pool.var('x', parent.id_, from_),
+                                         self._var_pool.var('y', from_, label, to),),
                                         self._var_pool.var('x', child.id_, to)
                                     )
                                 )
@@ -336,7 +364,8 @@ class MinDFAToSATClausesGenerator(BaseClausesGenerator):
                             for to in range(old_size):
                                 solver.append_formula(
                                     _conjunction_implies_to_clauses(
-                                        (self._var_pool.var('x', parent.id_, from_), self._var_pool.var('y', from_, label, to),),
+                                        (self._var_pool.var('x', parent.id_, from_),
+                                         self._var_pool.var('y', from_, label, to),),
                                         self._var_pool.var('x', child.id_, to)
                                     )
                                 )
@@ -385,7 +414,8 @@ class BFSBasedSymBreakingClausesGenerator(BaseClausesGenerator):
                 solver.append_formula(
                     _iff_conjunction_to_clauses(
                         self._var_pool.var('p', child, parent),
-                        tuple(-self._var_pool.var('t', prev, child) for prev in range(parent)) + (self._var_pool.var('t', parent, child),)
+                        tuple(-self._var_pool.var('t', prev, child) for prev in range(parent)) + (
+                            self._var_pool.var('t', parent, child),)
                     )
                 )
 
@@ -511,7 +541,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
         for child in range(old_size, size):
             for parent in range(child):
                 for other_parent in range(parent):
-                    solver.add_clause((-self._var_pool.var('p', child, parent), -self._var_pool.var('p', child, other_parent)))
+                    solver.add_clause(
+                        (-self._var_pool.var('p', child, parent), -self._var_pool.var('p', child, other_parent)))
 
     def _define_eq_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for child in range(max(1, old_size - 1), size - 1):
@@ -615,7 +646,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     solver.append_formula(
                         _iff_conjunction_to_clauses(
                             self._var_pool.var('ny', parent, l_num, child),
-                            (-self._var_pool.var('y', parent, l_num, child), self._var_pool.var('ny', parent, l_num - 1, child))
+                            (-self._var_pool.var('y', parent, l_num, child),
+                             self._var_pool.var('ny', parent, l_num - 1, child))
                         )
                     )
 
@@ -632,7 +664,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     solver.append_formula(
                         _iff_conjunction_to_clauses(
                             self._var_pool.var('m', parent, l_num, child),
-                            (self._var_pool.var('y', parent, l_num, child), self._var_pool.var('ny', parent, l_num - 1, child))
+                            (self._var_pool.var('y', parent, l_num, child),
+                             self._var_pool.var('ny', parent, l_num - 1, child))
                         )
                     )
 
@@ -649,7 +682,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     solver.append_formula(
                         _iff_conjunction_to_clauses(
                             self._var_pool.var('zm', parent, l_num, child),
-                            (self._var_pool.var('zm', parent, l_num - 1, child), -self._var_pool.var('m', parent, l_num, child))
+                            (self._var_pool.var('zm', parent, l_num - 1, child),
+                             -self._var_pool.var('m', parent, l_num, child))
                         )
                     )
 
