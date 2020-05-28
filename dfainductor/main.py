@@ -3,7 +3,7 @@ import sys
 import click
 
 from . import examples
-from .__version__ import __version__
+from .__about__ import __version__
 from .algorithms.searchers import LSUS
 from .logging import *
 from .statistics import STATISTICS

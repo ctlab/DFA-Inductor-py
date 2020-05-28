@@ -1,24 +1,35 @@
-from setuptools import find_packages, setup
+import os
 
-from dfainductor import __version__
-
-
-def main():
-    setup(
-        name='dfainductor',
-        description='A python tool for solving minDFA problem',
-        license='MIT',
-        version=__version__,
-        author='Ilya Zakirzyanov',
-        author_email='ilya.zakirzyanov@gmail.com',
-        packages=find_packages(),
-        entry_points={
-            'console_scripts': [
-                'dfainductor = dfainductor:cli',
-            ]
-        }
-    )
+from setuptools import setup, find_packages
 
 
-if __name__ == '__main__':
-    main()
+here = os.path.abspath(os.path.dirname(__file__))
+
+requires = [
+    'python-sat',
+    'click'
+]
+
+about = {}
+with open(os.path.join(here, 'dfainductor', '__about__.py'), 'r', encoding='utf-8') as f:
+    exec(f.read(), about)
+
+with open('README.md', 'r', encoding='utf-8') as f:
+    readme = f.read()
+
+setup(
+    name=about['__title__'],
+    version=about['__version__'],
+    description=about['__description__'],
+    author=about['__author__'],
+    author_email=about['__author_email__'],
+    license=about['__license__'],
+    packages=find_packages(),
+    install_requires=requires,
+    python_requires=">=3.7",
+    entry_points={
+        'console_scripts': [
+            'dfainductor = dfainductor:cli',
+        ]
+    }
+)
