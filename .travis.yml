@@ -6,12 +6,17 @@ matrix:
     - python: 3.8
       env: INSTALLATION_TYPE=PIP
     - python: 3.7
+      env: INSTALLATION_TYPE=PIPX
+    - python: 3.8
+      env: INSTALLATION_TYPE=PIPX
+    - python: 3.7
       env: INSTALLATION_TYPE=PIPENV
     - python: 3.8
       env: INSTALLATION_TYPE=PIPENV
 
 install:
   - if [ "$INSTALLATION_TYPE" = "PIP" ]; then pip install .; fi
+  - if [ "$INSTALLATION_TYPE" = "PIPX" ]; then pip install pipx; pipx install .; fi
   - if [ "$INSTALLATION_TYPE" = "PIPENV" ]; then pip install pipenv; pipenv install; fi
 
 script:

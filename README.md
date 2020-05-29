@@ -7,51 +7,25 @@ A python tool for solving minDFA problem.
 
 Need to be installed manually:
 
-* Python 3.7+
-* [pipenv](https://github.com/pypa/pipenv)
-```shell script
-pip install --user pipenv
-```
-
-Will be installed automatically:
-
+* python 3.7+
 * [PySAT](https://github.com/pysathq/pysat)
 * click
 
 ## Installation
 
-Clone the repository and use [pipenv](https://pipenv.pypa.io/en/latest/basics/) to install:
+Clone the repository and install it via **pip**, **pipx** (*recommended*), or **pipenv**:
 
-It can be installed into virtualenv:
 ```shell script
+pip install .
+pipx install .
 pipenv install
-```
-
-Or it can be installed globally:
-```shell script
-pipenv install --system
 ```
 
 ## Usage
 
-If the tool is installed into virtualenv, one can spawn a command from virtualenv:
-```shell script
-pipenv run dfainductor [args]
-```
-or can spawn a sub-shell within virtualenv and work in it:
-```shell script
-pipenv shell
-dfainductor [args]
-...
-exit
-```
+For a list of options check <b>`dfainductor --help`</b>.
 
-If the tool installed globally, just run it:
-```shell script
-dfainductor [args]
-```
-
-For detailed information check <b>`dfainductor --help`</b>.
+TODO: add details
 
 #### SAT solvers
  
