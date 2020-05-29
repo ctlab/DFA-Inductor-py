@@ -1,6 +1,7 @@
 # DFA-Inductor-py
-
 A python tool for solving minDFA problem.
+
+[![Build Status](https://travis-ci.org/ctlab/DFA-Inductor-py.svg?branch=master)](https://travis-ci.org/ctlab/DFA-Inductor-py)
 
 ## Requirements 
 
