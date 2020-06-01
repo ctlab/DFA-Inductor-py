@@ -5,20 +5,16 @@ A python tool for solving minDFA problem.
 
 ## Requirements 
 
-Need to be installed manually:
-
 * python 3.7+
 * [PySAT](https://github.com/pysathq/pysat)
 * click
 
 ## Installation
 
-Clone the repository and install it via **pip**, **pipx** (*recommended*), or **pipenv**:
+You can install it via pip or [pipx](https://github.com/pipxproject/pipx).
 
 ```shell script
-pip install .
-pipx install .
-pipenv install
+pip(x?) install dfainductor
 ```
 
 ## Usage
