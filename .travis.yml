@@ -1,15 +1,23 @@
 language: python
+
 python:
   - 3.7
   - 3.8
-env:
-  - INSTALLATION_TYPE=PIP COMMAND=pip
-  - INSTALLATION_TYPE=PIPX COMMAND=pipx
-  - INSTALLATION_TYPE=PIPENV COMMAND=pipenv
 
 install:
-  - if [ "$INSTALLATION_TYPE" = "PIPX" ]; then pip install pipx; fi
-  - if [ "$INSTALLATION_TYPE" = "PIPENV" ]; then pip install pipenv; fi
+  - pip install -r requirements.txt
 
 script:
-  - $COMMAND install .
+  - pip install .
+  - echo "no tests yet"
+
+deploy:
+  provider: pypi
+  username: __token__
+  password:
+    secure: YfVfH3O1lvejq3hV8p6w2h3gFJVntT2xJUvKoJlxZxlkgyVl8pzF05I96Vyz493AUSy07h5M5rcbwTVOHe/RY0A3p67pw4YZMdM+wNnOSucoKDSQWiXa0yDvVy8sFi3vi+Xko4np6oTyahN/W9lt96wH2czOa+OD0dtnoBA1D3AJTZg9vvPPcXJIKcIL93na1ApzVJVYSLOVnhnEiG47ktd6743DjWRytyy7sgzPwwdczP1xehUquOTUxLCxL5vviJFcokdMn4j5WsyktZQw23OhK2WPCAj+b2RzcSZF8kRgn7Csge/p3XG69vCe0uwvN1M5GTA8h0vl6Yg/C9jdoAOnrQtm+dulxsQqFv+2uc2wO/0TCatrVr7hTfTRcxca1OvQlK1V80CVIPHqOtDHV8CtLSwbobZF9lqiClE+jSFKzqtN5dHvMv983OXlL257pyQtEtyuv+HzCsFOzysMBR0uqYAHuMyXR8URduGyIRzJ/g0BNQMfANn5kiGpZLkhqPM9JTFxD4yPsh1ZTqfJYU5B5agpiJ2yQ1BwXPiDw9Eam7rMBEKpH/whjlHFipDoNh3j5Uis/ASYaHN1jVRorddJatngbSgZDoG8KboJJ4NfGuhuXYtX453Shp6mHk768xof+Qk7kiewJ8anR/8Pf9qi1sFSnCVv5lPh2npR5JM=
+  on:
+    tags: true
+    branch: master
+  distributions: "bdist_wheel"
+  skip_existing: true
