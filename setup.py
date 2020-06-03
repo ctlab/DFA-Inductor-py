@@ -25,6 +25,7 @@ setup(
     author_email=about['__author_email__'],
     description=about['__description__'],
     long_description=readme,
+    long_description_content_type='text/markdown',
     url="https://github.com/ctlab/DFA-Inductor-py",
     license=about['__license__'],
     packages=find_packages(),
