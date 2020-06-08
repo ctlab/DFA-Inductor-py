@@ -10,6 +10,10 @@ requires = [
     'click'
 ]
 
+extras = {
+    'dev': ['pytest']
+}
+
 about = {}
 with open(os.path.join(here, 'dfainductor', '__about__.py'), 'r', encoding='utf-8') as f:
     exec(f.read(), about)
@@ -30,6 +34,7 @@ setup(
     license=about['__license__'],
     packages=find_packages(),
     install_requires=requires,
+    extras_require=extras,
     python_requires=">=3.7",
     entry_points={
         'console_scripts': [

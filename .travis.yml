@@ -6,10 +6,10 @@ python:
 
 install:
   - pip install -r requirements.txt
+  - pip install -e '.[dev]'
 
 script:
-  - pip install .
-  - echo "no tests yet"
+  - pytest
 
 deploy:
   provider: pypi
