@@ -5,7 +5,7 @@ import click
 from . import examples
 from .__about__ import __version__
 from .algorithms.searchers import LSUS
-from .logging import *
+from .logging_utils import *
 from .statistics import STATISTICS
 from .structures import APTA, InconsistencyGraph
 

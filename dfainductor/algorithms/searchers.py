@@ -5,7 +5,7 @@ from pysat.solvers import Solver
 from ..variables import VarPool
 from .reductions import ClauseGenerator
 from ..examples import BaseExamplesProvider
-from ..logging import *
+from ..logging_utils import *
 from ..statistics import STATISTICS
 from ..structures import APTA, DFA, InconsistencyGraph
 

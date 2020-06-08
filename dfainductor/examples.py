@@ -22,7 +22,7 @@ class BaseExamplesProvider(ABC):
 
     def get_counter_examples(self, dfa: DFA) -> List[str]:
         counter_examples = []
-        counter_examples_num = self._counter_examples_size();
+        counter_examples_num = self._counter_examples_size()
         it = iter(self._examples)
         try:
             while len(counter_examples) < counter_examples_num:

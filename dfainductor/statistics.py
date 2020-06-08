@@ -1,7 +1,7 @@
 from timeit import default_timer as timer
 from typing import Dict
 
-from .logging import log_time, log_statistics, log_br
+from .logging_utils import log_time, log_statistics, log_br
 
 
 # noinspection DuplicatedCode
