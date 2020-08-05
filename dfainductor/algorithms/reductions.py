@@ -510,9 +510,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
         self._define_nt_variables(solver, size)
         self._define_p_variables_using_nt(solver, size)
         self._state_has_at_least_one_parent(solver, size)
-        self._state_has_at_most_one_parent(solver, size)
-        self._define_eq_variables(solver, size)
-        self._order_parents_using_ng_variables(solver, size)
+        self._define_np_variables(solver, size)
+        self._order_parents_using_np_variables(solver, size)
         self._order_children(solver, size)
 
     def generate_with_new_counterexamples(self, solver: Solver, size: int, new_from: int,
@@ -524,9 +523,8 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
         self._define_nt_variables(solver, new_size, old_size)
         self._define_p_variables_using_nt(solver, new_size, old_size)
         self._state_has_at_least_one_parent(solver, new_size, old_size)
-        self._state_has_at_most_one_parent(solver, new_size, old_size)
-        self._define_eq_variables(solver, new_size, old_size)
-        self._order_parents_using_ng_variables(solver, new_size, old_size)
+        self._define_np_variables(solver, new_size, old_size)
+        self._order_parents_using_np_variables(solver, new_size, old_size)
         self._order_children(solver, new_size, old_size)
 
     def _define_nt_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
@@ -562,83 +560,26 @@ class TightBFSBasedSymBreakingClausesGenerator(BFSBasedSymBreakingClausesGenerat
                     solver.add_clause(
                         (-self._vars.var('p', child, parent), -self._vars.var('p', child, other_parent)))
 
-    def _define_eq_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
-        for child in range(max(1, old_size - 1), size - 1):
-            for parent in range(child):
-                solver.add_clause(
-                    (
-                        self._vars.var('eq', child, parent),
-                        self._vars.var('p', child, parent),
-                        self._vars.var('p', child + 1, parent)
-                    )
-                )
-                solver.add_clause(
-                    (
-                        self._vars.var('eq', child, parent),
-                        -self._vars.var('p', child, parent),
-                        -self._vars.var('p', child + 1, parent)
-                    )
-                )
-                solver.add_clause(
-                    (
-                        -self._vars.var('eq', child, parent),
-                        -self._vars.var('p', child, parent),
-                        self._vars.var('p', child + 1, parent)
-                    )
-                )
-                solver.add_clause(
-                    (
-                        -self._vars.var('eq', child, parent),
-                        self._vars.var('p', child, parent),
-                        -self._vars.var('p', child + 1, parent)
+    def _define_np_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
+        for child in range(max(old_size, 2), size):
+            solver.append_formula(
+                _iff_to_clauses(self._vars.var('np', child, 0), -self._vars.var('p', child, 0))
+            )
+            for parent in range(1, child):
+                solver.append_formula(
+                    _iff_conjunction_to_clauses(
+                        self._vars.var('np', child, parent),
+                        (self._vars.var('np', child, parent - 1), -self._vars.var('p', child, parent))
                     )
                 )
 
-    def _order_parents_using_ng_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
+    def _order_parents_using_np_variables(self, solver: Solver, size: int, old_size: int = 0) -> None:
         for child in range(max(1, old_size - 1), size - 1):
-            solver.add_clause((self._vars.var('ng', child, child),))
-            solver.add_clause((self._vars.var('ng', child, 0),))
             for parent in range(child):
-                solver.add_clause(
-                    (
-                        -self._vars.var('ng', child, parent),
-                        self._vars.var('ng', child, parent + 1),
-                        self._vars.var('p', child, parent)
-                    )
-                )
-                solver.add_clause(
-                    (
-                        -self._vars.var('ng', child, parent),
-                        self._vars.var('eq', child, parent),
-                        self._vars.var('p', child, parent)
-                    )
-                )
-                solver.add_clause(
-                    (
-                        -self._vars.var('ng', child, parent),
-                        self._vars.var('ng', child, parent + 1),
-                        -self._vars.var('p', child + 1, parent)
-                    )
-                )
-                solver.add_clause(
-                    (
-                        -self._vars.var('ng', child, parent),
-                        self._vars.var('eq', child, parent),
-                        -self._vars.var('p', child + 1, parent)
-                    )
-                )
-                solver.add_clause(
-                    (
-                        self._vars.var('ng', child, parent),
-                        -self._vars.var('ng', child, parent + 1),
-                        -self._vars.var('eq', child, parent)
-                    )
-                )
-                solver.add_clause(
-                    (
-                        self._vars.var('ng', child, parent),
-                        -self._vars.var('p', child, parent),
-                        self._vars.var('p', child + 1, parent)
+                solver.append_formula(
+                    _implication_to_clauses(
+                        self._vars.var('p', child, parent),
+                        self._vars.var('np', child + 1, parent - 1)
                     )
                 )
 
